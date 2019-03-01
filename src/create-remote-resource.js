@@ -107,12 +107,21 @@ const createRemoteResource = ({
           loadingByKey
             .set(entryKey, load(...args).catch(registerError))
             .get(entryKey),
-        update: (updater, now) => {
+        set: data => {
           store.dispatch({
             type: RECEIVE_DATA,
+            now: Date.now(),
+            data,
+            entryKey,
+            resourceId
+          });
+        },
+        update: updater => {
+          store.dispatch({
+            type: RECEIVE_DATA,
+            now: Date.now(),
             data: updater(entry),
             entryKey,
-            now,
             resourceId
           });
         },
