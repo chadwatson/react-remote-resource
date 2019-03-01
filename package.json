@@ -1,0 +1,10 @@
+{
+  "name": "react-remote-resource",
+  "version": "0.1.0",
+  "description": "Intuitive remote data management in React",
+  "main": "index.js",
+  "repository": "https://github.com/chadwatson/react-remote-resource",
+  "author": "Chad Watson <chadwatsn@gmail.com>",
+  "license": "MIT",
+  "private": false
+}
