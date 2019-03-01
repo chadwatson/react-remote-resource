@@ -1,0 +1,14 @@
+{
+  "name": "react-remote-resource-example-post-form",
+  "version": "1.0.0",
+  "description": "An example app using react-remote-resource",
+  "main": "index.js",
+  "author": "Chad Watson <chadwatsn@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "ramda": "^0.26.1",
+    "react": "^16.8.3",
+    "react-dom": "^16.8.3",
+    "react-router-dom": "^4.3.1"
+  }
+}
