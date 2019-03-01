@@ -13,7 +13,7 @@ const store = createStore((state = ImmutableMap(), action) => {
       return state.set(action.resourceId, ImmutableMap());
     case RECEIVE_DATA:
       return state.setIn(
-        [action.resourceId, action.key],
+        [action.resourceId, action.entryKey],
         ImmutableMap({
           updatedAt: action.now,
           data: action.data
@@ -32,15 +32,15 @@ const createRemoteResource = ({
   save = () => Promise.resolve(),
   initialValue = null,
   invalidateAfter = 300000,
-  createCacheKey = defaultCreateCacheKey
+  createEntryKey = defaultCreateCacheKey
 }) => {
   store.dispatch({ type: REGISTER_RESOURCE, resourceId });
 
   const loadingByKey = new Map();
   const savingByKey = new Map();
 
-  const selectEntry = key =>
-    Maybe.fromNullable(store.getState().getIn([resourceId, key]));
+  const selectEntry = entryKey =>
+    Maybe.fromNullable(store.getState().getIn([resourceId, entryKey]));
 
   const selectData = maybeEntry =>
     maybeEntry.map(state => state.get("data")).getOrElse(initialValue);
@@ -49,84 +49,90 @@ const createRemoteResource = ({
     maybeEntry.map(state => state.get("updatedAt"));
 
   const load = (...args) => {
-    const key = createCacheKey(args);
+    const entryKey = createEntryKey(args);
     return loader(...args)
       .then(data => {
-        loadingByKey.delete(key);
+        loadingByKey.delete(entryKey);
         store.dispatch({
           type: RECEIVE_DATA,
           now: Date.now(),
           data,
-          key,
+          entryKey,
           resourceId
         });
       })
       .catch(error => {
-        loadingByKey.delete(key);
+        loadingByKey.delete(entryKey);
         throw error;
       });
   };
 
   return (...args) => {
-    const key = createCacheKey(args);
+    const entryKey = createEntryKey(args);
     const { registerError } = useContext(Context);
-    const [entry, setEntry] = useState(selectEntry(key));
+    const [entry, setEntry] = useState(selectEntry(entryKey));
     const cacheInvalid = selectUpdatedAt(entry)
       .map(updatedAt => updatedAt + invalidateAfter < Date.now())
       .getOrElse(true);
 
     useEffect(() => {
       return store.subscribe(() => {
-        const nextEntry = selectEntry(key);
+        const nextEntry = selectEntry(entryKey);
         if (nextEntry !== entry) {
           setEntry(nextEntry);
         }
       });
-    }, [key]);
+    }, [entryKey]);
 
     // We only load on the first render if the cache is invalid
     const renderCount = useRef(0);
     renderCount.current = renderCount.current + 1;
-    if (renderCount.current === 1 && cacheInvalid && !loadingByKey.has(key)) {
-      loadingByKey.set(key, load(...args).catch(registerError));
+    if (
+      renderCount.current === 1 &&
+      cacheInvalid &&
+      !loadingByKey.has(entryKey)
+    ) {
+      loadingByKey.set(entryKey, load(...args).catch(registerError));
     }
 
     // We only suspend while the initial load is outstanding
-    if (cacheInvalid && loadingByKey.has(key)) {
-      throw loadingByKey.get(key);
+    if (cacheInvalid && loadingByKey.has(entryKey)) {
+      throw loadingByKey.get(entryKey);
     }
 
     const actions = useMemo(
       () => ({
         refresh: () =>
-          loadingByKey.get(key) ||
-          loadingByKey.set(key, load(...args).catch(registerError)).get(key),
+          loadingByKey.get(entryKey) ||
+          loadingByKey
+            .set(entryKey, load(...args).catch(registerError))
+            .get(entryKey),
         update: (updater, now) => {
           store.dispatch({
             type: RECEIVE_DATA,
             data: updater(entry),
-            key,
+            entryKey,
             now,
             resourceId
           });
         },
         save: data =>
-          savingByKey.get(key) ||
+          savingByKey.get(entryKey) ||
           savingByKey
             .set(
-              key,
+              entryKey,
               save(data)
                 .then(() => {
-                  savingByKey.delete(key);
+                  savingByKey.delete(entryKey);
                 })
                 .catch(error => {
-                  savingByKey.delete(key);
+                  savingByKey.delete(entryKey);
                   throw error;
                 })
             )
-            .get(key)
+            .get(entryKey)
       }),
-      [key]
+      [entryKey]
     );
 
     return [selectData(entry), actions];
