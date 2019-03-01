@@ -39,13 +39,13 @@ const UserInfo = ({ userId }) => {
   const [tweets] = useTweets(userId);
 
   return (
-    <>
+    <div>
       <img src={user.imageUrl} />
       <h1>
         {user.name} | Tweets: {tweets.length}
       </h1>
       <p>{user.bio}</p>
-    </>
+    </div>
   );
 };
 
@@ -132,18 +132,18 @@ Uses `Suspense` under the hood to catch any thrown promises and render the `fall
 ```jsx
 const UserProfile = ({ userId }) => (
   <RemoteResourceBoundary
-    // Optional: A React node that will show while any thrown promises are pending. `null` by default.
+    /* Optional: A React node that will show while any thrown promises are pending. `null` by default. */
     fallback={<p>Loading...</p>}
-    // Optional: A callback that is invoked when any thrown promise rejects
+    /* Optional: A callback that is invoked when any thrown promise rejects */
     onLoadError={error => {
       logError(error);
     }}
-    // Required: A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again
+    /* Required: A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again */
     renderError={(error, clearError) => (
-      <>
+      <div>
         <p>{error}</p>
         <button onClick={clearError}>Try again</button>
-      </>
+      </div>
     )}
   >
     <UserInfo userId={userId} />
