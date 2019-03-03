@@ -53,48 +53,6 @@ var Context = React.createContext({
   registerError: function registerError() {}
 });
 
-var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
-  var children = _ref.children,
-      onLoadError = _ref.onLoadError,
-      _ref$fallback = _ref.fallback,
-      fallback = _ref$fallback === void 0 ? null : _ref$fallback,
-      _ref$renderError = _ref.renderError,
-      renderError = _ref$renderError === void 0 ? function (error) {
-    return null;
-  } : _ref$renderError;
-
-  var _useState = React.useState(Maybe.Nothing()),
-      _useState2 = _slicedToArray(_useState, 2),
-      error = _useState2[0],
-      setError = _useState2[1];
-
-  var providerValue = React.useMemo(function () {
-    return {
-      registerError: function registerError(error) {
-        setError(Maybe.of(error));
-        onLoadError(error);
-      }
-    };
-  }, [onLoadError]);
-  var clearError = React.useCallback(function () {
-    setError(Maybe.Nothing());
-  }, []);
-  return error.map(function (err) {
-    return renderError(err, clearError);
-  }).getOrElse(React__default.createElement(Context.Provider, {
-    value: providerValue
-  }, React__default.createElement(React.Suspense, {
-    fallback: fallback
-  }, children)));
-};
-
-RemoteResourceBoundary.propTypes = {
-  children: PropTypes.node.isRequired,
-  renderError: PropTypes.func.isRequired,
-  onLoadError: PropTypes.func,
-  fallback: PropTypes.node
-};
-
 var REGISTER_RESOURCE = "REGISTER_RESOURCE";
 var RECEIVE_DATA = "RECEIVE_DATA";
 var store = redux.createStore(function () {
@@ -256,6 +214,48 @@ var createRemoteResource = function createRemoteResource(_ref) {
     }, [entryKey]);
     return [selectData(entry), actions];
   };
+};
+
+var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
+  var children = _ref.children,
+      onLoadError = _ref.onLoadError,
+      _ref$fallback = _ref.fallback,
+      fallback = _ref$fallback === void 0 ? null : _ref$fallback,
+      _ref$renderError = _ref.renderError,
+      renderError = _ref$renderError === void 0 ? function (error) {
+    return null;
+  } : _ref$renderError;
+
+  var _useState = React.useState(Maybe.Nothing()),
+      _useState2 = _slicedToArray(_useState, 2),
+      error = _useState2[0],
+      setError = _useState2[1];
+
+  var providerValue = React.useMemo(function () {
+    return {
+      registerError: function registerError(error) {
+        setError(Maybe.of(error));
+        onLoadError(error);
+      }
+    };
+  }, [onLoadError]);
+  var clearError = React.useCallback(function () {
+    setError(Maybe.Nothing());
+  }, []);
+  return React__default.createElement(Context.Provider, {
+    value: providerValue
+  }, error.map(function (err) {
+    return renderError(err, clearError);
+  }).getOrElse(React__default.createElement(React.Suspense, {
+    fallback: fallback
+  }, children)));
+};
+
+RemoteResourceBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
+  renderError: PropTypes.func.isRequired,
+  onLoadError: PropTypes.func,
+  fallback: PropTypes.node
 };
 
 var useSuspense = function useSuspense(fn) {

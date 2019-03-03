@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useContext } from "react";
 import { createStore } from "redux";
 import { Map as ImmutableMap } from "immutable";
 import Maybe from "data.maybe";
-import { Context } from "./RemoteResourceBoundary";
+import Context from "./Context";
 
 const REGISTER_RESOURCE = "REGISTER_RESOURCE";
 const RECEIVE_DATA = "RECEIVE_DATA";

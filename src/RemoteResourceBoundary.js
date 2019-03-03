@@ -1,16 +1,7 @@
-import React, {
-  Suspense,
-  useState,
-  useCallback,
-  useMemo,
-  createContext
-} from "react";
+import React, { Suspense, useState, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import Maybe from "data.maybe";
-
-export const Context = createContext({
-  registerError: () => {}
-});
+import Context from "./Context";
 
 const RemoteResourceBoundary = ({
   children,
@@ -32,13 +23,13 @@ const RemoteResourceBoundary = ({
     setError(Maybe.Nothing());
   }, []);
 
-  return error
-    .map(err => renderError(err, clearError))
-    .getOrElse(
-      <Context.Provider value={providerValue}>
-        <Suspense fallback={fallback}>{children}</Suspense>
-      </Context.Provider>
-    );
+  return (
+    <Context.Provider value={providerValue}>
+      {error
+        .map(err => renderError(err, clearError))
+        .getOrElse(<Suspense fallback={fallback}>{children}</Suspense>)}
+    </Context.Provider>
+  );
 };
 
 RemoteResourceBoundary.propTypes = {
