@@ -2,15 +2,19 @@
   "name": "react-remote-resource",
   "version": "0.1.0",
   "description": "Intuitive remote data management in React",
-  "main": "index.js",
+  "main": "dist/cjs.js",
   "repository": "https://github.com/chadwatson/react-remote-resource",
   "author": "Chad Watson <chadwatsn@gmail.com>",
   "license": "MIT",
   "private": false,
+  "scripts": {
+    "build": "rollup -c"
+  },
   "dependencies": {
     "data.maybe": "^1.2.3",
     "immutable": "^4.0.0-rc.12",
-    "react": "^16.8.3",
+    "prop-types": "^15.7.2",
+    "react": "16.7.0-alpha.2",
     "redux": "^4.0.1"
   },
   "devDependencies": {
@@ -28,6 +32,8 @@
     "eslint-plugin-react": "^7.12.4",
     "jest": "^24.1.0",
     "prettier": "^1.16.4",
-    "react-dom": "^16.8.3"
+    "react-dom": "^16.8.3",
+    "rollup": "^1.4.0",
+    "rollup-plugin-babel": "^4.3.2"
   }
 }
