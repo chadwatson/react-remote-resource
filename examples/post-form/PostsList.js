@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { usePosts } from "./resources";
 
 const PostsList = () => {
-  const postsById = usePosts();
+  const [postsById] = usePosts();
 
   return (
     <ul>
@@ -12,6 +12,9 @@ const PostsList = () => {
           <Link to={`/posts/${post.id}`}>{post.title}</Link>
         </li>
       ))}
+      <li>
+        <Link to={`/posts/new`}>Create new post</Link>
+      </li>
     </ul>
   );
 };

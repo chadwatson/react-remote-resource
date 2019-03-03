@@ -7,8 +7,8 @@
   "license": "MIT",
   "dependencies": {
     "ramda": "^0.26.1",
-    "react": "^16.8.3",
-    "react-dom": "^16.8.3",
+    "react": "16.7.0-alpha.2",
+    "react-dom": "16.7.0-alpha.2",
     "react-router-dom": "^4.3.1"
   }
 }
