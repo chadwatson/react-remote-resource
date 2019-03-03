@@ -264,15 +264,26 @@ var useSuspense = function useSuspense(fn) {
       task = _useState2[0],
       setTask = _useState2[1];
 
+  var mounted = React.useRef(true);
+  React.useEffect(function () {
+    return function () {
+      mounted.current = false;
+    };
+  }, []);
+
   if (task) {
     throw task;
   }
 
   return function () {
     return setTask(fn().then(function () {
-      setTask(null);
+      if (mounted.current) {
+        setTask(null);
+      }
     }).catch(function () {
-      setTask(null);
+      if (mounted.current) {
+        setTask(null);
+      }
     }));
   };
 };
