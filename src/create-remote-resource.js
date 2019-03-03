@@ -131,8 +131,9 @@ const createRemoteResource = ({
             .set(
               entryKey,
               save(data)
-                .then(() => {
+                .then(savedData => {
                   savingByKey.delete(entryKey);
+                  return savedData;
                 })
                 .catch(error => {
                   savingByKey.delete(entryKey);

@@ -203,8 +203,9 @@ var createRemoteResource = function createRemoteResource(_ref) {
           });
         },
         save: function save(data) {
-          return savingByKey.get(entryKey) || savingByKey.set(entryKey, _save(data).then(function () {
+          return savingByKey.get(entryKey) || savingByKey.set(entryKey, _save(data).then(function (savedData) {
             savingByKey.delete(entryKey);
+            return savedData;
           }).catch(function (error) {
             savingByKey.delete(entryKey);
             throw error;
