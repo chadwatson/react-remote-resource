@@ -43,9 +43,9 @@ const RemoteResourceBoundary = ({
 
 RemoteResourceBoundary.propTypes = {
   children: PropTypes.node.isRequired,
-  onLoadError: PropTypes.func.isRequired,
-  fallback: PropTypes.node,
-  renderError: PropTypes.func
+  renderError: PropTypes.func.isRequired,
+  onLoadError: PropTypes.func,
+  fallback: PropTypes.node
 };
 
 export default RemoteResourceBoundary;

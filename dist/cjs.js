@@ -90,9 +90,9 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
 
 RemoteResourceBoundary.propTypes = {
   children: PropTypes.node.isRequired,
-  onLoadError: PropTypes.func.isRequired,
-  fallback: PropTypes.node,
-  renderError: PropTypes.func
+  renderError: PropTypes.func.isRequired,
+  onLoadError: PropTypes.func,
+  fallback: PropTypes.node
 };
 
 var REGISTER_RESOURCE = "REGISTER_RESOURCE";
