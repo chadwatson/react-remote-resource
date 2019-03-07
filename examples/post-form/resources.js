@@ -12,6 +12,7 @@ const postsById = {
     tags: []
   }
 };
+
 const tags = [
   {
     id: 111,
@@ -26,6 +27,21 @@ const tags = [
     label: "Design"
   }
 ];
+
+const commentsByPostId = {
+  123: [
+    {
+      id: 656,
+      author: "Bob Jones",
+      content: "Hello world"
+    },
+    {
+      id: 565,
+      author: "George Watson",
+      content: "Hello Bob!"
+    }
+  ]
+};
 
 export const usePosts = createRemoteResource({
   id: "posts", // Required: Unique identifier for the cache
@@ -92,4 +108,25 @@ export const useTags = createRemoteResource({
         resolve(tags);
       }, 1000);
     })
+});
+
+const loadComments = postId =>
+  new Promise(resolve => {
+    setTimeout(() => {
+      resolve(commentsByPostId[postId]);
+    }, 1000);
+  });
+
+export const useComments = createRemoteResource({
+  id: "comments", // Required: Unique identifier for the cache
+  load: loadComments,
+  subscribe: onUpdate => postId => {
+    const interval = setInterval(() => {
+      loadComments(postId).then(onUpdate);
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }
 });

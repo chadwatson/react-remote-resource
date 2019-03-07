@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 const useSubscribe = resource => {
-  useEffect(resource.subscribe, []);
+  useEffect(resource.actions.subscribe, [resource.actions]);
   return resource;
 };
 
