@@ -3,9 +3,11 @@ import { createStore } from "redux";
 import { Map as ImmutableMap } from "immutable";
 import Maybe from "data.maybe";
 import Context from "./Context";
+import createTaskManager from "./create-task-manager";
 
 const REGISTER_RESOURCE = "REGISTER_RESOURCE";
 const RECEIVE_DATA = "RECEIVE_DATA";
+const DELETE_ENTRY = "DELETE_ENTRY";
 
 const store = createStore((state = ImmutableMap(), action) => {
   switch (action.type) {
@@ -19,6 +21,8 @@ const store = createStore((state = ImmutableMap(), action) => {
           data: action.data
         })
       );
+    case DELETE_ENTRY:
+      return state.deleteIn([action.resourceId, action.entryKey]);
     default:
       return state;
   }
@@ -30,14 +34,16 @@ const createRemoteResource = ({
   id: resourceId,
   load: loader = () => Promise.resolve(),
   save = () => Promise.resolve(),
+  delete: destroy = () => Promise.resolve(),
   initialValue = null,
   invalidateAfter = 300000,
   createEntryKey = defaultCreateCacheKey
 }) => {
   store.dispatch({ type: REGISTER_RESOURCE, resourceId });
 
-  const loadingByKey = new Map();
-  const savingByKey = new Map();
+  const loadTasks = createTaskManager();
+  const saveTasks = createTaskManager();
+  const deleteTasks = createTaskManager();
 
   const selectEntry = entryKey =>
     Maybe.fromNullable(store.getState().getIn([resourceId, entryKey]));
@@ -50,23 +56,19 @@ const createRemoteResource = ({
 
   const load = (...args) => {
     const entryKey = createEntryKey(args);
-    return loader(...args)
-      .then(data => {
-        loadingByKey.delete(entryKey);
+    return loadTasks.run(entryKey, () =>
+      loader(...args).then(data => {
         store.dispatch({
           type: RECEIVE_DATA,
           now: Date.now(),
+          entryKey: createEntryKey(args),
           data,
-          entryKey,
           resourceId
         });
+        return data;
       })
-      .catch(error => {
-        loadingByKey.delete(entryKey);
-        throw error;
-      });
+    );
   };
-
   return (...args) => {
     const entryKey = createEntryKey(args);
     const { registerError } = useContext(Context);
@@ -87,27 +89,23 @@ const createRemoteResource = ({
     // We only load on the first render if the cache is invalid
     const renderCount = useRef(0);
     renderCount.current = renderCount.current + 1;
-    if (
-      renderCount.current === 1 &&
-      cacheInvalid &&
-      !loadingByKey.has(entryKey)
-    ) {
-      loadingByKey.set(entryKey, load(...args).catch(registerError));
+    if (renderCount.current === 1 && cacheInvalid && !loadTasks.has(entryKey)) {
+      load(...args).catch(registerError);
     }
 
     // We only suspend while the initial load is outstanding
-    if (cacheInvalid && loadingByKey.has(entryKey)) {
-      throw loadingByKey.get(entryKey);
+    if (cacheInvalid && loadTasks.has(entryKey)) {
+      throw loadTasks.get(entryKey);
     }
 
     const actions = useMemo(
       () => ({
-        refresh: () =>
-          loadingByKey.get(entryKey) ||
-          loadingByKey
-            .set(entryKey, load(...args).catch(registerError))
-            .get(entryKey),
-        set: data => {
+        refresh: () => load(...args).catch(registerError),
+        setCache: valueOrUpdate => {
+          const data =
+            typeof valueOrUpdate == "function"
+              ? valueOrUpdate(selectData(entry))
+              : valueOrUpdate;
           store.dispatch({
             type: RECEIVE_DATA,
             now: Date.now(),
@@ -115,32 +113,22 @@ const createRemoteResource = ({
             entryKey,
             resourceId
           });
+          return data;
         },
-        update: updater => {
+        deleteCache: () => {
           store.dispatch({
-            type: RECEIVE_DATA,
-            now: Date.now(),
-            data: updater(entry),
+            type: DELETE_ENTRY,
             entryKey,
             resourceId
           });
+          return selectData(entry);
         },
-        save: data =>
-          savingByKey.get(entryKey) ||
-          savingByKey
-            .set(
-              entryKey,
-              save(data)
-                .then(savedData => {
-                  savingByKey.delete(entryKey);
-                  return savedData;
-                })
-                .catch(error => {
-                  savingByKey.delete(entryKey);
-                  throw error;
-                })
-            )
-            .get(entryKey)
+        remoteSave: data => {
+          saveTasks.run(entryKey, () => save(data));
+        },
+        remoteDelete: () => {
+          deleteTasks.run(entryKey, () => destroy(selectData(entry)));
+        }
       }),
       [entryKey]
     );

@@ -1,4 +1,6 @@
 import uuid from "uuid/v1";
+import { useMemo, useCallback } from "react";
+import { dissoc } from "ramda";
 import { createRemoteResource } from "react-remote-resource";
 
 // You'd probably use an API in real life, but we'll simulate one here.
@@ -27,24 +29,11 @@ const tags = [
 
 export const usePosts = createRemoteResource({
   id: "posts", // Required: Unique identifier for the cache
-  load: id =>
+  load: () =>
     new Promise((resolve, reject) => {
-      if (id && postsById[id]) {
-        resolve(postsById[id]);
-      } else if (id === "new") {
-        resolve({
-          title: "",
-          id: null,
-          content: "",
-          tags: []
-        });
-      } else if (id && !postsById[id]) {
-        reject("Post not found");
-      } else {
-        setTimeout(() => {
-          resolve(postsById);
-        }, 2000);
-      }
+      setTimeout(() => {
+        resolve(postsById);
+      }, 2000);
     }),
   save: post =>
     new Promise(resolve => {
@@ -53,8 +42,47 @@ export const usePosts = createRemoteResource({
         postsById[postWithId.id] = postWithId;
         resolve(postWithId);
       }, 1000);
+    }),
+  delete: post =>
+    new Promise(resolve => {
+      setTimeout(() => {
+        delete postsById[post.id];
+        resolve(post);
+      }, 1000);
     })
 });
+
+export const usePost = id => {
+  const [posts, actions] = usePosts();
+  return [
+    posts.get(id),
+    {
+      ...actions,
+      setCache: post => actions.setCache({ ...posts, [id]: post }),
+      deleteCache: post => actions.deleteCache(dissoc(id, post))
+    }
+  ];
+};
+
+export const useNewPost = () => {
+  const [posts, actions] = usePosts();
+  return [
+    useMemo(
+      () => ({
+        title: "",
+        content: "",
+        tags: []
+      }),
+      []
+    ),
+    useCallback(data => {
+      actions.remoteSave(data).then(savedPost => {
+        actions.setCache({ ...posts, [savedPost.id]: savedPost });
+        return savedPost;
+      });
+    }, [])
+  ];
+};
 
 export const useTags = createRemoteResource({
   id: "tags", // Required: Unique identifier for the cache

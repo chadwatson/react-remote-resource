@@ -1,15 +1,15 @@
 import React, { useCallback } from "react";
 import { withRouter } from "react-router-dom";
 import PostForm from "./PostForm";
-import { usePosts } from "./resources";
+import { useNewPost } from "./resources";
 
 const NewPostForm = ({ history }) => {
-  const [post, actions] = usePosts("new");
+  const [post, createPost] = useNewPost();
   return (
     <PostForm
       onSave={useCallback(
         state =>
-          actions.save(state).then(({ id }) => history.push(`/posts/${id}`)),
+          createPost(state).then(({ id }) => history.push(`/posts/${id}`)),
         []
       )}
       post={post}

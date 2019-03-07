@@ -3,11 +3,11 @@ import { append, remove } from "ramda";
 import { useTags } from "./resources";
 import useSuspense from "./use-suspense";
 
-const SaveButton = ({ onClick }) => (
-  <button onClick={useSuspense(onClick)}>Save</button>
+const Button = ({ onClick, children }) => (
+  <button onClick={useSuspense(onClick)}>{children}</button>
 );
 
-const PostForm = ({ post, onSave, goBack }) => {
+const PostForm = ({ post, onSave, onDelete, goBack }) => {
   // Returns the latest tags, fetching and suspending rendering if cache is invalid
   const [tags] = useTags();
   const [state, setState] = useState(post);
@@ -86,7 +86,10 @@ const PostForm = ({ post, onSave, goBack }) => {
         </fieldset>
       </div>
       <Suspense fallback={<span>Saving...</span>}>
-        <SaveButton onClick={save} />
+        <Button onClick={save}>Save</Button>
+      </Suspense>
+      <Suspense fallback={<span>Deleting...</span>}>
+        <Button onClick={() => onDelete(post)}>Delete</Button>
       </Suspense>
     </form>
   );
