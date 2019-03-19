@@ -147,12 +147,14 @@ const createRemoteResource = ({
         });
         return data;
       }, [data]),
-      remoteSave: useCallback(newData => {
-        saveTasks.run(entryKey, () => save(newData));
-      }, []),
-      remoteDelete: useCallback(() => {
-        deleteTasks.run(entryKey, () => destroy(data));
-      }, [data]),
+      remoteSave: useCallback(
+        newData => saveTasks.run(entryKey, () => save(newData)),
+        []
+      ),
+      remoteDelete: useCallback(
+        () => deleteTasks.run(entryKey, () => destroy(data)),
+        [data]
+      ),
       subscribe: useCallback(() => {
         // we only want one subscription running for each entry at a time
         if (hasSubscription) {
