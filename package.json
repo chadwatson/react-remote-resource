@@ -8,13 +8,13 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "test": "jest"
   },
   "dependencies": {
     "data.maybe": "^1.2.3",
     "immutable": "^4.0.0-rc.12",
     "prop-types": "^15.7.2",
-    "react": "16.7.0-alpha.2",
     "redux": "^4.0.1"
   },
   "devDependencies": {
@@ -32,8 +32,13 @@
     "eslint-plugin-react": "^7.12.4",
     "jest": "^24.1.0",
     "prettier": "^1.16.4",
+    "react-testing-library": "^6.0.1",
     "rollup": "^1.4.0",
     "rollup-plugin-babel": "^4.3.2",
     "rollup-plugin-uglify": "^6.0.2"
+  },
+  "peerDependencies": {
+    "react": ">= 16.7.0-alpha.2",
+    "react-dom": ">= 16.7.0-alpha.2"
   }
 }
