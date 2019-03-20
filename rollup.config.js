@@ -9,7 +9,12 @@ export default {
   },
   plugins: [
     babel({
-      exclude: "node_modules/**"
+      exclude: "node_modules/**",
+      babelrc: false,
+      presets: [
+        ["@babel/preset-env", { modules: false }],
+        "@babel/preset-react"
+      ]
     }),
     uglify()
   ]
