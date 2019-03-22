@@ -1,6 +1,6 @@
 {
   "name": "react-remote-resource",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Intuitive remote data management in React",
   "main": "dist/index.cjs.js",
   "module": "dist/index.js",
