@@ -2,7 +2,8 @@
   "name": "react-remote-resource",
   "version": "0.2.2",
   "description": "Intuitive remote data management in React",
-  "main": "dist/cjs.js",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.js",
   "repository": "https://github.com/chadwatson/react-remote-resource",
   "author": "Chad Watson <chadwatsn@gmail.com>",
   "license": "MIT",
@@ -14,15 +15,16 @@
   "dependencies": {
     "data.maybe": "^1.2.3",
     "immutable": "^4.0.0-rc.12",
-    "prop-types": "^15.7.2",
     "redux": "^4.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",
+    "@babel/plugin-proposal-class-properties": "^7.4.0",
     "@babel/preset-env": "^7.4.1",
     "@babel/preset-react": "^7.0.0",
     "babel-eslint": "^9.0.0",
     "babel-jest": "^24.5.0",
+    "babel-plugin-transform-react-remove-prop-types": "^0.4.24",
     "eslint": "^5.14.0",
     "eslint-config-prettier": "^4.0.0",
     "eslint-config-react-app": "^3.0.7",
@@ -40,10 +42,11 @@
     "react-testing-library": "^6.0.1",
     "rollup": "^1.4.0",
     "rollup-plugin-babel": "^4.3.2",
-    "rollup-plugin-peer-deps-external": "^2.2.0",
-    "rollup-plugin-uglify": "^6.0.2"
+    "rollup-plugin-node-resolve": "^4.0.1",
+    "rollup-plugin-size-snapshot": "^0.8.0"
   },
   "peerDependencies": {
+    "prop-types": "15.x.x",
     "react": ">= 16.7.0-alpha.2",
     "react-dom": ">= 16.7.0-alpha.2"
   }

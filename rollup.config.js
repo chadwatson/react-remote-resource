@@ -1,23 +1,51 @@
+import path from "path";
 import babel from "rollup-plugin-babel";
-import { uglify } from "rollup-plugin-uglify";
-import peerDepsExternal from "rollup-plugin-peer-deps-external";
+import resolve from "rollup-plugin-node-resolve";
+import { sizeSnapshot } from "rollup-plugin-size-snapshot";
 
-export default {
-  input: "src/index.js",
-  output: {
-    file: "dist/cjs.js",
-    format: "cjs"
-  },
+const root = process.platform === "win32" ? path.resolve("/") : "/";
+const external = id => !id.startsWith(".") && !id.startsWith(root);
+const extensions = [".js"];
+const getBabelOptions = ({ useESModules }, targets) => ({
+  babelrc: false,
+  extensions,
+  exclude: "**/node_modules/**",
+  runtimeHelpers: true,
+  presets: [
+    ["@babel/preset-env", { loose: true, modules: false, targets }],
+    "@babel/preset-react"
+  ],
   plugins: [
-    peerDepsExternal(),
-    babel({
-      exclude: "node_modules/**",
-      babelrc: false,
-      presets: [
-        ["@babel/preset-env", { modules: false }],
-        "@babel/preset-react"
-      ]
-    }),
-    uglify()
+    ["@babel/proposal-class-properties", { loose: true }],
+    ["@babel/plugin-proposal-object-rest-spread", { loose: true }],
+    ["transform-react-remove-prop-types", { removeImport: true }]
   ]
-};
+});
+
+export default [
+  {
+    input: "./src/index.js",
+    output: { file: "dist/index.js", format: "esm" },
+    external,
+    plugins: [
+      babel(
+        getBabelOptions(
+          { useESModules: true },
+          ">1%, not dead, not ie 11, not op_mini all"
+        )
+      ),
+      sizeSnapshot(),
+      resolve({ extensions })
+    ]
+  },
+  {
+    input: `./src/index.js`,
+    output: { file: `dist/index.cjs.js`, format: "cjs" },
+    external,
+    plugins: [
+      babel(getBabelOptions({ useESModules: false })),
+      sizeSnapshot(),
+      resolve({ extensions })
+    ]
+  }
+];
