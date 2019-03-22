@@ -1,5 +1,6 @@
 import babel from "rollup-plugin-babel";
 import { uglify } from "rollup-plugin-uglify";
+import peerDepsExternal from "rollup-plugin-peer-deps-external";
 
 export default {
   input: "src/index.js",
@@ -8,6 +9,7 @@ export default {
     format: "cjs"
   },
   plugins: [
+    peerDepsExternal(),
     babel({
       exclude: "node_modules/**",
       babelrc: false,
