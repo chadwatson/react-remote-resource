@@ -163,20 +163,24 @@ const ProductCategory = ({ categoryId }) => {
 
 This hook is very powerful. Let's walk through what happens when it is used:
 
-1. If there is no data in the store for this resource OR if there is no entry for the combination of arguments OR if the component is mounting and the last time the data was loaded for this entry was longer ago than the `invalidateAfter` argument then the `load` function that was passed into `createRemoteResource` will be invoked and the returned promise will be thrown until the promise resolves or rejects.
-2. If the promise resolves with the data then it will be available as the first item in the tuple.
-3. You can change the state using the second item in the tuple. Note that state changes are not local to the component like `useState`. If the component unmounts and remounts the state will be the same as when you left it.
+1. If there is no data for this resource OR no entry in the cache for the arguments (See [invalidateAfter](https://github.com/chadwatson/react-remote-resource/blob/master/README.md#createremoteresource)) OR the cache is stale (See [invalidateAfter](https://github.com/chadwatson/react-remote-resource/blob/master/README.md#createremoteresource)), then the `load` function of the `categoriesResource` and `productsResource` will be invoked and promises thrown.
+2. If either of the promises reject, the closest `RemoteResourceBoundary` will handle the error. If both promises resolve, the `categoriesById` and `products` data will be available to use (as the first item in the tuple).
+3. You can set the state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
 
 ### `useResourceActions`
 
 A React hook that takes a resource and an optional array of arguments and returns an object literal with the following methods:
 
-- `set`: A function that takes either the new state to set for this entry or a function that takes the current state of the entry and returns what should be set as the new state for the entry.
-- `refresh`: A function that allows you to bypass the check against the `updatedAt` timestamp and immediately refetch the data. Note: the promise will **not** be thrown for this action.
-- `save`: The `save` function that was defined with `createRemoteResource`. Note: this will be `undefined` if you did not define a `save` function with `createRemoteResource`.
-- `delete`: The `delete` function that was defined with `createRemoteResource`. Note: this will be `undefined` if you did not define a `delete` function with `createRemoteResource`.
 
-Note: the array of arguments that are provided as the second argument will be spread as the initial arguments to the `save` and `delete` actions.
+- `set`: A function that takes either the new state to set for this entry or a function that takes the current state of the entry and returns what should be set as the new state for the entry.
+
+- `refresh`: A function that allows you to bypass the check against the `updatedAt` timestamp and immediately refetch the data. *Note: the promise will **not** be thrown for this action.*
+
+- `save`: The `save` function that was defined with `createRemoteResource`. *Note: this will be `undefined` if you did not define a `save` function with `createRemoteResource`.*
+
+- `delete`: The `delete` function that was defined with `createRemoteResource`. *Note: this will be `undefined` if you did not define a `delete` function with `createRemoteResource`.*
+
+Note: the array of arguments that are provided as the second argument will be spread as the initial arguments to the `save` and `delete` actions. For example, for the actions below, both `save` and `delete` inside of actions would receive `categoryId` as the first parameter when invoked.
 
 ```jsx
 import { useResourceState, useResourceActions } from "react-remote-resource";
