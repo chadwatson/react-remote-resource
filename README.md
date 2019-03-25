@@ -98,6 +98,7 @@ const useProduct = createRemoteResource({
   // Optional: A Promise-returning function
   // Default: () => Promise.resolve()
   delete: product => fetch(`/api/products/${product.id}`, { method: "DELETE" }),
+  
   // Optional: The amount of time in milliseconds since the last update in which the cache is considered stale.
   // Default: 300000 (5 minutes)
   invalidateAfter: 10000,
