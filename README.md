@@ -94,7 +94,8 @@ const useProduct = createRemoteResource({
   save: product =>
       ? fetch(`/api/products/${product.id}`, { method: "PUT", body: JSON.stringify(product) }).then(response => response.json())
       : fetch("/api/products", { method: "POST", body: JSON.stringify(product) }).then(response => response.json()),
-  // Optional: A Promise-returing function
+
+  // Optional: A Promise-returning function
   // Default: () => Promise.resolve()
   delete: product => fetch(`/api/products/${product.id}`, { method: "DELETE" }),
   // Optional: The amount of time in milliseconds since the last update in which the cache is considered stale.
