@@ -24,7 +24,7 @@ const useResourceState = (resource, args = []) => {
 
   useEffect(
     () =>
-      // Important! The return value is used to unsubsribe from the store when necessary.
+      // Important! The return value is used to unsubscribe from the store when necessary.
       resource.onChange(() => {
         setEntry(resource.getEntry(entryId));
       }),
