@@ -2,9 +2,9 @@ import uuid from "uuid/v1";
 import store, { selectEntry, selectResource } from "./store";
 
 const createRemoteResource = ({
-  load = () => Promise.resolve(),
-  save = () => Promise.resolve(),
-  delete: destroy = () => Promise.resolve(),
+  load,
+  save,
+  delete: destroy,
   initialValue = null,
   invalidateAfter = 300000,
   createEntryId = (...args) => args.join("-") || "INDEX"
