@@ -4,80 +4,122 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var React = require('react');
-var React__default = _interopDefault(React);
+var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
+var uuid = _interopDefault(require('uuid/v1'));
 var redux = require('redux');
+var ramda = require('ramda');
 var immutable = require('immutable');
 var Maybe = _interopDefault(require('data.maybe'));
+var React = require('react');
+var React__default = _interopDefault(React);
 
-var Context = React.createContext({
-  registerError: function registerError() {}
-});
+var LOADING_ENTRY = "LOADING_ENTRY";
+var LOADING_ENTRY_FAILED = "LOADING_ENTRY_FAILED";
+var RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
+var Entry = immutable.Record({
+  id: "",
+  data: Maybe.Nothing(),
+  updatedAt: Maybe.Nothing(),
+  loadPromise: Maybe.Nothing()
+}, "RemoteResourceEntry");
 
-var createTaskManager = function createTaskManager() {
-  var tasks = new Map();
-  return {
-    has: function has(key) {
-      return tasks.has(key);
-    },
-    get: function get(key) {
-      return tasks.get(key);
-    },
-    run: function run(key, task) {
-      return tasks.get(key) || tasks.set(key, task().then(function (x) {
-        tasks.delete(key);
-        return x;
-      }).catch(function (error) {
-        tasks.delete(key);
-        throw error;
-      })).get(key);
-    }
-  };
-};
-
-var REGISTER_RESOURCE = "REGISTER_RESOURCE";
-var RECEIVE_DATA = "RECEIVE_DATA";
-var DELETE_ENTRY = "DELETE_ENTRY";
-var SUBSCRIPTION_STARTED = "SUBSCRIPTION_STARTED";
-var SUBSCRIPTION_ENDED = "SUBSCRIPTION_ENDED";
-var store = redux.createStore(function (state, action) {
+var entryReducer = function entryReducer(state, action) {
   if (state === void 0) {
-    state = immutable.Map();
+    state = Entry();
   }
 
   switch (action.type) {
-    case REGISTER_RESOURCE:
-      return state.set(action.resourceId, immutable.Map());
+    case LOADING_ENTRY:
+      return state.merge({
+        id: action.entryId,
+        loadPromise: Maybe.of(action.promise)
+      });
 
-    case RECEIVE_DATA:
-      return state.setIn([action.resourceId, action.entryKey], immutable.Map({
-        updatedAt: action.now,
-        data: action.data,
-        hasSubscription: false
-      }));
+    case LOADING_ENTRY_FAILED:
+      return state.merge({
+        id: action.entryId,
+        loadPromise: Maybe.Nothing()
+      });
 
-    case SUBSCRIPTION_STARTED:
-      return state.setIn([action.resourceId, action.entryKey, "hasSubscription"], true);
-
-    case SUBSCRIPTION_ENDED:
-      return state.setIn([action.resourceId, action.entryKey, "hasSubscription"], false);
-
-    case DELETE_ENTRY:
-      return state.deleteIn([action.resourceId, action.entryKey]);
+    case RECEIVE_ENTRY_DATA:
+      return state.merge({
+        id: action.entryId,
+        data: Maybe.fromNullable(action.data),
+        updatedAt: ramda.isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now),
+        loadPromise: Maybe.Nothing()
+      });
 
     default:
       return state;
   }
+};
+
+var initialResourceState = immutable.Map({
+  entriesById: immutable.Map()
 });
 
-var defaultCreateCacheKey = function defaultCreateCacheKey(args) {
-  return args.join("-") || "INDEX";
+var resourceReducer = function resourceReducer(state, action) {
+  if (state === void 0) {
+    state = initialResourceState;
+  }
+
+  switch (action.type) {
+    case RECEIVE_ENTRY_DATA:
+      return state.updateIn(["entriesById", action.entryId], function (entryState) {
+        return entryReducer(entryState, action);
+      });
+
+    default:
+      return state;
+  }
+};
+
+var initialRootState = immutable.Map({
+  resourcesById: immutable.Map()
+});
+
+var rootReducer = function rootReducer(state, action) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  switch (action.type) {
+    case RECEIVE_ENTRY_DATA:
+      return state.updateIn(["resourcesById", action.resourceId], function (resourceState) {
+        return resourceReducer(resourceState, action);
+      });
+
+    default:
+      return state;
+  }
+};
+
+var store = redux.createStore(rootReducer);
+var selectResource = function selectResource(state, _ref) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  var resourceId = _ref.resourceId;
+  return Maybe.fromNullable(state.getIn(["resourcesById", resourceId]));
+};
+var selectEntry = function selectEntry(state, _ref2) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  var resourceId = _ref2.resourceId,
+      entryId = _ref2.entryId;
+  return selectResource(state, {
+    resourceId: resourceId
+  }).chain(function (resource) {
+    return Maybe.fromNullable(resource.getIn(["entriesById", entryId]));
+  });
 };
 
 var createRemoteResource = function createRemoteResource(_ref) {
-  var resourceId = _ref.id,
-      _ref$load = _ref.load,
-      loader = _ref$load === void 0 ? function () {
+  var _ref$load = _ref.load,
+      load = _ref$load === void 0 ? function () {
     return Promise.resolve();
   } : _ref$load,
       _ref$save = _ref.save,
@@ -88,166 +130,60 @@ var createRemoteResource = function createRemoteResource(_ref) {
       destroy = _ref$delete === void 0 ? function () {
     return Promise.resolve();
   } : _ref$delete,
-      _ref$subscribe = _ref.subscribe,
-      subscribe = _ref$subscribe === void 0 ? function () {
-    return function () {};
-  } : _ref$subscribe,
       _ref$initialValue = _ref.initialValue,
       initialValue = _ref$initialValue === void 0 ? null : _ref$initialValue,
       _ref$invalidateAfter = _ref.invalidateAfter,
       invalidateAfter = _ref$invalidateAfter === void 0 ? 300000 : _ref$invalidateAfter,
-      _ref$createEntryKey = _ref.createEntryKey,
-      createEntryKey = _ref$createEntryKey === void 0 ? defaultCreateCacheKey : _ref$createEntryKey;
-  store.dispatch({
-    type: REGISTER_RESOURCE,
-    resourceId: resourceId
-  });
-  var loadTasks = createTaskManager();
-  var saveTasks = createTaskManager();
-  var deleteTasks = createTaskManager();
-
-  var selectEntry = function selectEntry(entryKey) {
-    return Maybe.fromNullable(store.getState().getIn([resourceId, entryKey]));
-  };
-
-  var selectData = function selectData(maybeEntry) {
-    return maybeEntry.map(function (state) {
-      return state.get("data");
-    }).getOrElse(initialValue);
-  };
-
-  var selectUpdatedAt = function selectUpdatedAt(maybeEntry) {
-    return maybeEntry.map(function (state) {
-      return state.get("updatedAt");
-    });
-  };
-
-  var selectHasSubscription = function selectHasSubscription(maybeEntry) {
-    return maybeEntry.map(function (state) {
-      return state.get("hasSubscription");
-    }).getOrElse(false);
-  };
-
-  var load = function load() {
+      _ref$createEntryId = _ref.createEntryId,
+      createEntryId = _ref$createEntryId === void 0 ? function () {
     for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
       args[_key] = arguments[_key];
     }
 
-    var entryKey = createEntryKey(args);
-    return loadTasks.run(entryKey, function () {
-      return loader.apply(void 0, args).then(function (data) {
-        store.dispatch({
-          type: RECEIVE_DATA,
-          now: Date.now(),
-          entryKey: createEntryKey(args),
-          data: data,
-          resourceId: resourceId
-        });
-        return data;
+    return args.join("-") || "INDEX";
+  } : _ref$createEntryId;
+  var resourceId = uuid();
+  return {
+    id: resourceId,
+    createEntryId: createEntryId,
+    initialValue: initialValue,
+    invalidateAfter: invalidateAfter,
+    load: load,
+    save: save,
+    delete: destroy,
+    getEntry: function getEntry(entryId) {
+      return selectEntry(store.getState(), {
+        resourceId: resourceId,
+        entryId: entryId
       });
-    });
-  };
-
-  return function () {
-    for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-      args[_key2] = arguments[_key2];
-    }
-
-    var entryKey = createEntryKey(args);
-
-    var _useContext = React.useContext(Context),
-        registerError = _useContext.registerError;
-
-    var _useState = React.useState(selectEntry(entryKey)),
-        entry = _useState[0],
-        setEntry = _useState[1];
-
-    var data = selectData(entry);
-    var hasSubscription = selectHasSubscription(entry);
-    var cacheInvalid = selectUpdatedAt(entry).map(function (updatedAt) {
-      return updatedAt + invalidateAfter < Date.now();
-    }).getOrElse(true);
-    React.useEffect(function () {
-      return store.subscribe(function () {
-        var nextEntry = selectEntry(entryKey);
-
-        if (nextEntry !== entry) {
-          setEntry(nextEntry);
-        }
-      });
-    }, [entryKey]); // We only load on the first render if the cache is invalid
-
-    var renderCount = React.useRef(0);
-    renderCount.current = renderCount.current + 1;
-
-    if (renderCount.current === 1 && cacheInvalid && !loadTasks.has(entryKey)) {
-      load.apply(void 0, args).catch(registerError);
-    } // We only suspend while the initial load is outstanding
-
-
-    if (cacheInvalid && loadTasks.has(entryKey)) {
-      throw loadTasks.get(entryKey);
-    }
-
-    var setCache = React.useCallback(function (valueOrUpdate) {
-      var newData = typeof valueOrUpdate == "function" ? valueOrUpdate(data) : valueOrUpdate;
-      store.dispatch({
-        type: RECEIVE_DATA,
-        now: Date.now(),
-        data: newData,
-        entryKey: entryKey,
+    },
+    onChange: function onChange(_onChange) {
+      var currentState = selectResource(store.getState(), {
         resourceId: resourceId
       });
-      return newData;
-    }, [data]);
-    var actions = {
-      refresh: React.useCallback(function () {
-        return load.apply(void 0, args).catch(registerError);
-      }, []),
-      setCache: setCache,
-      deleteCache: React.useCallback(function () {
-        store.dispatch({
-          type: DELETE_ENTRY,
-          entryKey: entryKey,
+      return store.subscribe(function () {
+        var nextResourceState = selectResource(store.getState(), {
           resourceId: resourceId
         });
-        return data;
-      }, [data]),
-      remoteSave: React.useCallback(function (newData) {
-        return saveTasks.run(entryKey, function () {
-          return save(newData);
-        });
-      }, []),
-      remoteDelete: React.useCallback(function () {
-        return deleteTasks.run(entryKey, function () {
-          return destroy(data);
-        });
-      }, [data]),
-      subscribe: React.useCallback(function () {
-        // we only want one subscription running for each entry at a time
-        if (hasSubscription) {
-          return;
-        }
 
-        store.dispatch({
-          type: SUBSCRIPTION_STARTED,
-          entryKey: entryKey,
-          resourceId: resourceId
-        });
-        var cleanup = subscribe(setCache).apply(void 0, args);
-        return function () {
-          cleanup();
-          store.dispatch({
-            type: SUBSCRIPTION_ENDED,
-            entryKey: entryKey,
-            resourceId: resourceId
-          });
-        };
-      }, [hasSubscription])
-    };
-    return [selectData(entry), actions];
+        if (nextResourceState !== currentState) {
+          currentState = nextResourceState;
+
+          _onChange();
+        }
+      });
+    },
+    dispatch: function dispatch(action) {
+      return store.dispatch(_extends({}, action, {
+        resourceId: resourceId
+      }));
+    }
   };
 };
+
+var Context = React.createContext({
+  registerError: function registerError() {}
+});
 
 var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   var children = _ref.children,
@@ -283,45 +219,115 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   }, children)));
 };
 
-/**
- * Makes a resource "optimistic".
- */
-var useOptimism = function useOptimism(_ref) {
-  var data = _ref[0],
-      actions = _ref[1];
-  return [data, // Save. Updates cache first then saves to the remote
-  function () {
-    actions.setCache.apply(actions, arguments);
-    return actions.remoteSave.apply(actions, arguments);
-  }, // Delete. Deletes the cache first then deletes from the remote
-  function () {
-    actions.deleteCache.apply(actions, arguments);
-    return actions.remoteDelete.apply(actions, arguments);
-  }];
-};
+var useResourceActions = function useResourceActions(resource, args) {
+  if (args === void 0) {
+    args = [];
+  }
 
-/**
- * Makes a resource "pessimistic".
- */
-var usePessimism = function usePessimism(_ref) {
-  var data = _ref[0],
-      actions = _ref[1];
-  return [data, {
-    refresh: actions.refresh,
-    // Saves to the remote first, then if it succeeds it updates the cache
-    save: function save() {
-      return actions.remoteSave.apply(actions, arguments).then(actions.setCache);
-    },
-    // Deletes from the remote first, then if it succeeds it deletes the cache
-    delete: function _delete() {
-      return actions.remoteDelete.apply(actions, arguments).then(actions.deleteCache);
+  var entryId = resource.createEntryId.apply(resource, args);
+
+  var _useContext = React.useContext(Context),
+      registerError = _useContext.registerError;
+
+  var data = resource.getEntry(entryId).chain(function (entry) {
+    return entry.data;
+  }).getOrElse(resource.initialValue);
+  var actions = {
+    set: React.useCallback(function (nextData) {
+      resource.dispatch({
+        type: RECEIVE_ENTRY_DATA,
+        entryId: entryId,
+        data: typeof nextData === "function" ? nextData(data) : nextData,
+        now: Date.now()
+      });
+    }, [data]),
+    refresh: function refresh() {
+      return resource.load.apply(resource, args).then(function (data) {
+        resource.dispatch({
+          type: RECEIVE_ENTRY_DATA,
+          entryId: entryId,
+          data: data,
+          now: Date.now()
+        });
+      }).catch(function (error) {
+        registerError(error);
+        resource.dispatch({
+          type: LOADING_ENTRY_FAILED,
+          entryId: entryId
+        });
+      });
     }
-  }];
+  };
+
+  if (resource.save) {
+    actions.save = resource.save;
+  }
+
+  if (resource.delete) {
+    actions.delete = resource.delete;
+  }
+
+  return actions;
 };
 
-var useSubscribe = function useSubscribe(resource) {
-  React.useEffect(resource.actions.subscribe, [resource.actions]);
-  return resource;
+var useFirstRender = function useFirstRender() {
+  var renderCount = React.useRef(0);
+  renderCount.current = renderCount.current + 1;
+  return renderCount.current === 1;
+};
+
+var useResourceState = function useResourceState(resource, args) {
+  if (args === void 0) {
+    args = [];
+  }
+
+  var entryId = resource.createEntryId.apply(resource, args);
+
+  var _useState = React.useState(resource.getEntry(entryId)),
+      maybeEntry = _useState[0],
+      setEntry = _useState[1];
+
+  var data = maybeEntry.chain(function (entry) {
+    return entry.data;
+  }).getOrElse(resource.initialValue);
+  var cacheInvalid = maybeEntry.map(function (entry) {
+    return entry.updatedAt + resource.invalidateAfter < Date.now();
+  }).getOrElse(data === resource.initialValue);
+  var loadPromise = maybeEntry.chain(function (entry) {
+    return entry.loadPromise;
+  }).getOrElse(null);
+  var actions = useResourceActions(resource, args);
+  React.useEffect(function () {
+    return (// Important! The return value is used to unsubsribe from the store when necessary.
+      resource.onChange(function () {
+        setEntry(resource.getEntry(entryId));
+      })
+    );
+  }, [entryId]);
+  var isFirstRender = useFirstRender();
+
+  if (isFirstRender && cacheInvalid && !loadPromise) {
+    var promise = actions.refresh(); // We need to store the promise so that if the component gets re-mounted
+    // while the promise is pending we have the ability to throw it.
+
+    resource.dispatch({
+      type: LOADING_ENTRY,
+      entryId: entryId,
+      promise: promise
+    });
+    throw promise;
+  } else if (loadPromise) {
+    throw loadPromise;
+  }
+
+  return [data, React.useCallback(function (nextData) {
+    resource.dispatch({
+      type: RECEIVE_ENTRY_DATA,
+      entryId: entryId,
+      data: typeof nextData === "function" ? nextData(data) : nextData,
+      now: Date.now()
+    });
+  }, [data])];
 };
 
 var useSuspense = function useSuspense(fn) {
@@ -355,7 +361,6 @@ var useSuspense = function useSuspense(fn) {
 
 exports.createRemoteResource = createRemoteResource;
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
-exports.useOptimism = useOptimism;
-exports.usePessimism = usePessimism;
-exports.useSubscribe = useSubscribe;
+exports.useResourceState = useResourceState;
+exports.useResourceActions = useResourceActions;
 exports.useSuspense = useSuspense;
