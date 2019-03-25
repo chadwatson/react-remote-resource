@@ -88,6 +88,7 @@ A function that takes a config object and returns a resource.
 const useProduct = createRemoteResource({
   // Required: A Promise-returing function that resolves with the data or rejects if fails
   load: id => fetch(`/api/products/${id}`).then(response => response.json()),
+  
   // Optional: A Promise-returing function that resolves with the data or rejects if fails
   // Default: () => Promise.resolve()
   save: product =>
