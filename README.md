@@ -137,7 +137,7 @@ A React hook that takes a resource and an optional array of arguments and return
 import { useResourceState } from "react-remote-resource";
 
 const ProductCategory = ({ categoryId }) => {
-  const [categoriesById] = useResourceState(categoriesState);
+  const [categoriesById] = useResourceState(categoriesResource);
   const [products] = useResourceState(productsResource, [categoryId]);
 
   return (
