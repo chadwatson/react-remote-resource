@@ -4,7 +4,11 @@ Intuitive remote data management in React
 
 ## Overview
 
-Creating a remote resource gives you a React hook that can be used throughout your application. Whenever a component using the hook mounts the resource will pull the data from the internal cache and check if it is still valid by checking the `invalidateAfter` option (5 minutes by default) against the last time the cache was updated for that entry. If there is no data for that entry or the cache is invalid then the `load` function will be invoked and then thrown. If you have a `RemoteResourceBoundary` somewhere higher up in the component tree then it will catch the thrown promise (using `Suspsense` under the hood) and render the `fallback` until all promises resolve. If a promise rejects then the `RemoteResourceBoundary` will catch it and call `renderError` and `onLoadError` (if provided). This gives you an intuitive way to get and use data throughout your app without over-fetching. You also save yourself a lot of time and headache implementing these kinds of things in Redux or some other data management library.
+react-remote-resource simplifies the integration of remote resources, usually api endpoints, into React applications, reducing boilerplate and data over-fetching.
+
+## How does it work?
+
+Whenever a resource is used it will check the internal cache for a valid data entry. If a valid entry is found, the resource will return the data from the cache and the data is ready to use. If no valid entry is found, the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise and render the `fallback` until all outstanding Promises resolve. If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`. This provides an intuitive way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
 
 ## Getting Started
 
@@ -88,7 +92,7 @@ A function that takes a config object and returns a resource.
 const useProduct = createRemoteResource({
   // Required: A Promise-returing function that resolves with the data or rejects if fails
   load: id => fetch(`/api/products/${id}`).then(response => response.json()),
-  
+
   // Optional: A Promise-returing function that resolves with the data or rejects if fails
   // Default: () => Promise.resolve()
   save: product =>
@@ -98,14 +102,17 @@ const useProduct = createRemoteResource({
   // Optional: A Promise-returning function
   // Default: () => Promise.resolve()
   delete: product => fetch(`/api/products/${product.id}`, { method: "DELETE" }),
-  
+
   // Optional: The amount of time in milliseconds since the last update in which the cache is considered stale.
   // Default: 300000 (5 minutes)
   invalidateAfter: 10000,
-  
+
   // Optional: A function that creates an entry id from the arguments given to the hook
   // Default: args => args.join("-") || "INDEX"
-  createEntryId: id => id.toString().toUpperCase()
+  createEntryId: id => id.toString().toUpperCase(),
+
+  // Optional: The value to fall back to if no data has been fetched
+  initialValue: []
 });
 ```
 
@@ -171,14 +178,13 @@ This hook is very powerful. Let's walk through what happens when it is used:
 
 A React hook that takes a resource and an optional array of arguments and returns an object literal with the following methods:
 
-
 - `set`: A function that takes either the new state to set for this entry or a function that takes the current state of the entry and returns what should be set as the new state for the entry.
 
-- `refresh`: A function that allows you to bypass the check against the `updatedAt` timestamp and immediately refetch the data. *Note: the promise will **not** be thrown for this action.*
+- `refresh`: A function that allows you to bypass the check against the `updatedAt` timestamp and immediately refetch the data. _Note: the promise will **not** be thrown for this action._
 
-- `save`: The `save` function that was defined with `createRemoteResource`. *Note: this will be `undefined` if you did not define a `save` function with `createRemoteResource`.*
+- `save`: The `save` function that was defined with `createRemoteResource`. _Note: this will be `undefined` if you did not define a `save` function with `createRemoteResource`._
 
-- `delete`: The `delete` function that was defined with `createRemoteResource`. *Note: this will be `undefined` if you did not define a `delete` function with `createRemoteResource`.*
+- `delete`: The `delete` function that was defined with `createRemoteResource`. _Note: this will be `undefined` if you did not define a `delete` function with `createRemoteResource`._
 
 Note: the array of arguments that are provided as the second argument will be spread as the initial arguments to the `save` and `delete` actions. For example, for the actions below, both `save` and `delete` inside of actions would receive `categoryId` as the first parameter when invoked.
 
@@ -240,20 +246,20 @@ const UserProfile = ({ userId }) => (
 A hook that takes a promise returning function. It will throw the returned promise as long as it is pending.
 
 ```jsx
-import { useSuspense } from "react-remote-resource";
-import useUser from "../resources/user";
+import { useSuspense, useResourceActions } from "react-remote-resource";
+import userResource from "../resources/user";
 
 const SaveButton = ({ onClick }) => (
   <button onClick={useSuspense(onClick)}>Save</button>
 );
 
 const UserForm = () => {
-  const [user, actions] = useUser();
+  const actions = useResourceActions(userResource);
   return (
     <div>
       ...Your form fields
       <Suspense fallback={<p>Saving...</p>}>
-        <SaveButton onClick={actions.remoteSave} />
+        <SaveButton onClick={actions.save} />
       </Suspense>
     </div>
   );
