@@ -102,6 +102,7 @@ const useProduct = createRemoteResource({
   // Optional: The amount of time in milliseconds since the last update in which the cache is considered stale.
   // Default: 300000 (5 minutes)
   invalidateAfter: 10000,
+  
   // Optional: A function that creates an entry id from the arguments given to the hook
   // Default: args => args.join("-") || "INDEX"
   createEntryId: id => id.toString().toUpperCase()
