@@ -1,1 +1,1 @@
-export * from "./src";
+module.exports = require("./dist/index.cjs.js");

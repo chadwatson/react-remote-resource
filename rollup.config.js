@@ -5,7 +5,7 @@ import { sizeSnapshot } from "rollup-plugin-size-snapshot";
 
 const root = process.platform === "win32" ? path.resolve("/") : "/";
 const external = id => !id.startsWith(".") && !id.startsWith(root);
-const extensions = [".js"];
+const extensions = [".js", ".jsx", ".json"];
 const getBabelOptions = ({ useESModules }, targets) => ({
   babelrc: false,
   extensions,
@@ -18,7 +18,8 @@ const getBabelOptions = ({ useESModules }, targets) => ({
   plugins: [
     ["@babel/proposal-class-properties", { loose: true }],
     ["@babel/plugin-proposal-object-rest-spread", { loose: true }],
-    ["transform-react-remove-prop-types", { removeImport: true }]
+    ["transform-react-remove-prop-types", { removeImport: true }],
+    ["@babel/plugin-transform-runtime", { regenerator: false, useESModules }]
   ]
 });
 

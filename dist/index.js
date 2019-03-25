@@ -1,202 +1,166 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import _extends from '@babel/runtime/helpers/esm/extends';
+import uuid from 'uuid/v1';
 import { createStore } from 'redux';
-import { Map as Map$1 } from 'immutable';
+import { isNil } from 'ramda';
+import { Record, Map } from 'immutable';
 import Maybe from 'data.maybe';
+import React, { createContext, useState, useMemo, useCallback, Suspense, useContext, useEffect, useRef } from 'react';
 
-const Context = createContext({
-  registerError: () => {}
-});
+const LOADING_ENTRY = "LOADING_ENTRY";
+const LOADING_ENTRY_FAILED = "LOADING_ENTRY_FAILED";
+const RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
+const Entry = Record({
+  id: "",
+  data: Maybe.Nothing(),
+  updatedAt: Maybe.Nothing(),
+  loadPromise: Maybe.Nothing()
+}, "RemoteResourceEntry");
 
-const createTaskManager = () => {
-  const tasks = new Map();
-  return {
-    has: key => tasks.has(key),
-    get: key => tasks.get(key),
-    run: (key, task) => tasks.get(key) || tasks.set(key, task().then(x => {
-      tasks.delete(key);
-      return x;
-    }).catch(error => {
-      tasks.delete(key);
-      throw error;
-    })).get(key)
-  };
-};
-
-const REGISTER_RESOURCE = "REGISTER_RESOURCE";
-const RECEIVE_DATA = "RECEIVE_DATA";
-const DELETE_ENTRY = "DELETE_ENTRY";
-const SUBSCRIPTION_STARTED = "SUBSCRIPTION_STARTED";
-const SUBSCRIPTION_ENDED = "SUBSCRIPTION_ENDED";
-const store = createStore(function (state, action) {
+const entryReducer = function entryReducer(state, action) {
   if (state === void 0) {
-    state = Map$1();
+    state = Entry();
   }
 
   switch (action.type) {
-    case REGISTER_RESOURCE:
-      return state.set(action.resourceId, Map$1());
+    case LOADING_ENTRY:
+      return state.merge({
+        id: action.entryId,
+        loadPromise: Maybe.of(action.promise)
+      });
 
-    case RECEIVE_DATA:
-      return state.setIn([action.resourceId, action.entryKey], Map$1({
-        updatedAt: action.now,
-        data: action.data,
-        hasSubscription: false
-      }));
+    case LOADING_ENTRY_FAILED:
+      return state.merge({
+        id: action.entryId,
+        loadPromise: Maybe.Nothing()
+      });
 
-    case SUBSCRIPTION_STARTED:
-      return state.setIn([action.resourceId, action.entryKey, "hasSubscription"], true);
-
-    case SUBSCRIPTION_ENDED:
-      return state.setIn([action.resourceId, action.entryKey, "hasSubscription"], false);
-
-    case DELETE_ENTRY:
-      return state.deleteIn([action.resourceId, action.entryKey]);
+    case RECEIVE_ENTRY_DATA:
+      return state.merge({
+        id: action.entryId,
+        data: Maybe.fromNullable(action.data),
+        updatedAt: isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now),
+        loadPromise: Maybe.Nothing()
+      });
 
     default:
       return state;
   }
+};
+
+const initialResourceState = Map({
+  entriesById: Map()
 });
 
-const defaultCreateCacheKey = args => args.join("-") || "INDEX";
+const resourceReducer = function resourceReducer(state, action) {
+  if (state === void 0) {
+    state = initialResourceState;
+  }
+
+  switch (action.type) {
+    case RECEIVE_ENTRY_DATA:
+      return state.updateIn(["entriesById", action.entryId], entryState => entryReducer(entryState, action));
+
+    default:
+      return state;
+  }
+};
+
+const initialRootState = Map({
+  resourcesById: Map()
+});
+
+const rootReducer = function rootReducer(state, action) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  switch (action.type) {
+    case RECEIVE_ENTRY_DATA:
+      return state.updateIn(["resourcesById", action.resourceId], resourceState => resourceReducer(resourceState, action));
+
+    default:
+      return state;
+  }
+};
+
+const store = createStore(rootReducer);
+const selectResource = function selectResource(state, _ref) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  let resourceId = _ref.resourceId;
+  return Maybe.fromNullable(state.getIn(["resourcesById", resourceId]));
+};
+const selectEntry = function selectEntry(state, _ref2) {
+  if (state === void 0) {
+    state = initialRootState;
+  }
+
+  let resourceId = _ref2.resourceId,
+      entryId = _ref2.entryId;
+  return selectResource(state, {
+    resourceId
+  }).chain(resource => Maybe.fromNullable(resource.getIn(["entriesById", entryId])));
+};
 
 const createRemoteResource = (_ref) => {
-  let resourceId = _ref.id,
-      _ref$load = _ref.load,
-      loader = _ref$load === void 0 ? () => Promise.resolve() : _ref$load,
+  let _ref$load = _ref.load,
+      load = _ref$load === void 0 ? () => Promise.resolve() : _ref$load,
       _ref$save = _ref.save,
       save = _ref$save === void 0 ? () => Promise.resolve() : _ref$save,
       _ref$delete = _ref.delete,
       destroy = _ref$delete === void 0 ? () => Promise.resolve() : _ref$delete,
-      _ref$subscribe = _ref.subscribe,
-      subscribe = _ref$subscribe === void 0 ? () => () => {} : _ref$subscribe,
       _ref$initialValue = _ref.initialValue,
       initialValue = _ref$initialValue === void 0 ? null : _ref$initialValue,
       _ref$invalidateAfter = _ref.invalidateAfter,
       invalidateAfter = _ref$invalidateAfter === void 0 ? 300000 : _ref$invalidateAfter,
-      _ref$createEntryKey = _ref.createEntryKey,
-      createEntryKey = _ref$createEntryKey === void 0 ? defaultCreateCacheKey : _ref$createEntryKey;
-  store.dispatch({
-    type: REGISTER_RESOURCE,
-    resourceId
-  });
-  const loadTasks = createTaskManager();
-  const saveTasks = createTaskManager();
-  const deleteTasks = createTaskManager();
-
-  const selectEntry = entryKey => Maybe.fromNullable(store.getState().getIn([resourceId, entryKey]));
-
-  const selectData = maybeEntry => maybeEntry.map(state => state.get("data")).getOrElse(initialValue);
-
-  const selectUpdatedAt = maybeEntry => maybeEntry.map(state => state.get("updatedAt"));
-
-  const selectHasSubscription = maybeEntry => maybeEntry.map(state => state.get("hasSubscription")).getOrElse(false);
-
-  const load = function load() {
+      _ref$createEntryId = _ref.createEntryId,
+      createEntryId = _ref$createEntryId === void 0 ? function () {
     for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
       args[_key] = arguments[_key];
     }
 
-    const entryKey = createEntryKey(args);
-    return loadTasks.run(entryKey, () => loader(...args).then(data => {
-      store.dispatch({
-        type: RECEIVE_DATA,
-        now: Date.now(),
-        entryKey: createEntryKey(args),
-        data,
+    return args.join("-") || "INDEX";
+  } : _ref$createEntryId;
+  const resourceId = uuid();
+  return {
+    id: resourceId,
+    createEntryId,
+    initialValue,
+    invalidateAfter,
+    load,
+    save,
+    delete: destroy,
+    getEntry: entryId => selectEntry(store.getState(), {
+      resourceId,
+      entryId
+    }),
+    onChange: _onChange => {
+      let currentState = selectResource(store.getState(), {
         resourceId
       });
-      return data;
-    }));
-  };
-
-  return function () {
-    for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-      args[_key2] = arguments[_key2];
-    }
-
-    const entryKey = createEntryKey(args);
-
-    const _useContext = useContext(Context),
-          registerError = _useContext.registerError;
-
-    const _useState = useState(selectEntry(entryKey)),
-          entry = _useState[0],
-          setEntry = _useState[1];
-
-    const data = selectData(entry);
-    const hasSubscription = selectHasSubscription(entry);
-    const cacheInvalid = selectUpdatedAt(entry).map(updatedAt => updatedAt + invalidateAfter < Date.now()).getOrElse(true);
-    useEffect(() => {
       return store.subscribe(() => {
-        const nextEntry = selectEntry(entryKey);
-
-        if (nextEntry !== entry) {
-          setEntry(nextEntry);
-        }
-      });
-    }, [entryKey]); // We only load on the first render if the cache is invalid
-
-    const renderCount = useRef(0);
-    renderCount.current = renderCount.current + 1;
-
-    if (renderCount.current === 1 && cacheInvalid && !loadTasks.has(entryKey)) {
-      load(...args).catch(registerError);
-    } // We only suspend while the initial load is outstanding
-
-
-    if (cacheInvalid && loadTasks.has(entryKey)) {
-      throw loadTasks.get(entryKey);
-    }
-
-    const setCache = useCallback(valueOrUpdate => {
-      const newData = typeof valueOrUpdate == "function" ? valueOrUpdate(data) : valueOrUpdate;
-      store.dispatch({
-        type: RECEIVE_DATA,
-        now: Date.now(),
-        data: newData,
-        entryKey,
-        resourceId
-      });
-      return newData;
-    }, [data]);
-    const actions = {
-      refresh: useCallback(() => load(...args).catch(registerError), []),
-      setCache,
-      deleteCache: useCallback(() => {
-        store.dispatch({
-          type: DELETE_ENTRY,
-          entryKey,
+        const nextResourceState = selectResource(store.getState(), {
           resourceId
         });
-        return data;
-      }, [data]),
-      remoteSave: useCallback(newData => saveTasks.run(entryKey, () => save(newData)), []),
-      remoteDelete: useCallback(() => deleteTasks.run(entryKey, () => destroy(data)), [data]),
-      subscribe: useCallback(() => {
-        // we only want one subscription running for each entry at a time
-        if (hasSubscription) {
-          return;
-        }
 
-        store.dispatch({
-          type: SUBSCRIPTION_STARTED,
-          entryKey,
-          resourceId
-        });
-        const cleanup = subscribe(setCache)(...args);
-        return () => {
-          cleanup();
-          store.dispatch({
-            type: SUBSCRIPTION_ENDED,
-            entryKey,
-            resourceId
-          });
-        };
-      }, [hasSubscription])
-    };
-    return [selectData(entry), actions];
+        if (nextResourceState !== currentState) {
+          currentState = nextResourceState;
+
+          _onChange();
+        }
+      });
+    },
+    dispatch: action => store.dispatch(_extends({}, action, {
+      resourceId
+    }))
   };
 };
+
+const Context = createContext({
+  registerError: () => {}
+});
 
 const RemoteResourceBoundary = (_ref) => {
   let children = _ref.children,
@@ -226,45 +190,102 @@ const RemoteResourceBoundary = (_ref) => {
   }, children)));
 };
 
-/**
- * Makes a resource "optimistic".
- */
-const useOptimism = (_ref) => {
-  let data = _ref[0],
-      actions = _ref[1];
-  return [data, // Save. Updates cache first then saves to the remote
-  function () {
-    actions.setCache(...arguments);
-    return actions.remoteSave(...arguments);
-  }, // Delete. Deletes the cache first then deletes from the remote
-  function () {
-    actions.deleteCache(...arguments);
-    return actions.remoteDelete(...arguments);
-  }];
+const useResourceActions = function useResourceActions(resource, args) {
+  if (args === void 0) {
+    args = [];
+  }
+
+  const entryId = resource.createEntryId(...args);
+
+  const _useContext = useContext(Context),
+        registerError = _useContext.registerError;
+
+  const data = resource.getEntry(entryId).chain(entry => entry.data).getOrElse(resource.initialValue);
+  const actions = {
+    set: useCallback(nextData => {
+      resource.dispatch({
+        type: RECEIVE_ENTRY_DATA,
+        entryId,
+        data: typeof nextData === "function" ? nextData(data) : nextData,
+        now: Date.now()
+      });
+    }, [data]),
+    refresh: () => resource.load(...args).then(data => {
+      resource.dispatch({
+        type: RECEIVE_ENTRY_DATA,
+        entryId,
+        data,
+        now: Date.now()
+      });
+    }).catch(error => {
+      registerError(error);
+      resource.dispatch({
+        type: LOADING_ENTRY_FAILED,
+        entryId
+      });
+    })
+  };
+
+  if (resource.save) {
+    actions.save = resource.save;
+  }
+
+  if (resource.delete) {
+    actions.delete = resource.delete;
+  }
+
+  return actions;
 };
 
-/**
- * Makes a resource "pessimistic".
- */
-const usePessimism = (_ref) => {
-  let data = _ref[0],
-      actions = _ref[1];
-  return [data, {
-    refresh: actions.refresh,
-    // Saves to the remote first, then if it succeeds it updates the cache
-    save: function save() {
-      return actions.remoteSave(...arguments).then(actions.setCache);
-    },
-    // Deletes from the remote first, then if it succeeds it deletes the cache
-    delete: function _delete() {
-      return actions.remoteDelete(...arguments).then(actions.deleteCache);
-    }
-  }];
+const useFirstRender = () => {
+  const renderCount = useRef(0);
+  renderCount.current = renderCount.current + 1;
+  return renderCount.current === 1;
 };
 
-const useSubscribe = resource => {
-  useEffect(resource.actions.subscribe, [resource.actions]);
-  return resource;
+const useResourceState = function useResourceState(resource, args) {
+  if (args === void 0) {
+    args = [];
+  }
+
+  const entryId = resource.createEntryId(...args);
+
+  const _useState = useState(resource.getEntry(entryId)),
+        maybeEntry = _useState[0],
+        setEntry = _useState[1];
+
+  const data = maybeEntry.chain(entry => entry.data).getOrElse(resource.initialValue);
+  const cacheInvalid = maybeEntry.map(entry => entry.updatedAt + resource.invalidateAfter < Date.now()).getOrElse(data === resource.initialValue);
+  const loadPromise = maybeEntry.chain(entry => entry.loadPromise).getOrElse(null);
+  const actions = useResourceActions(resource, args);
+  useEffect(() => // Important! The return value is used to unsubsribe from the store when necessary.
+  resource.onChange(() => {
+    setEntry(resource.getEntry(entryId));
+  }), [entryId]);
+  const isFirstRender = useFirstRender();
+
+  if (isFirstRender && cacheInvalid && !loadPromise) {
+    const promise = actions.refresh(); // We need to store the promise so that if the component gets re-mounted
+    // while the promise is pending we have the ability to throw it.
+
+    resource.dispatch({
+      type: LOADING_ENTRY,
+      entryId,
+      promise
+    });
+    throw promise;
+  } else if (loadPromise) {
+    throw loadPromise;
+  }
+
+  return [data, useCallback(nextData => {
+    resource.dispatch({
+      type: RECEIVE_ENTRY_DATA,
+      entryId,
+      data: typeof nextData === "function" ? nextData(data) : nextData,
+      now: Date.now()
+    });
+  }, [data])];
 };
 
 const useSuspense = fn => {
@@ -292,4 +313,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { createRemoteResource, RemoteResourceBoundary, useOptimism, usePessimism, useSubscribe, useSuspense };
+export { createRemoteResource, RemoteResourceBoundary, useResourceState, useResourceActions, useSuspense };
