@@ -5,7 +5,7 @@ import Context from "./Context";
 
 const RemoteResourceBoundary = ({
   children,
-  onLoadError,
+  onLoadError = () => {},
   fallback = null,
   renderError = error => null
 }) => {
