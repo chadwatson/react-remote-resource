@@ -10,8 +10,11 @@ const createRemoteResource = ({
   createEntryId = (...args) => args.join("-") || "INDEX"
 }) => {
   const resourceId = uuid();
+  const loadingPromisesByEntryId = new Map();
+
   return {
     id: resourceId,
+    loadingPromisesByEntryId,
     createEntryId,
     initialValue,
     invalidateAfter,

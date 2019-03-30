@@ -2,18 +2,15 @@ import _extends from '@babel/runtime/helpers/esm/extends';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { isNil } from 'ramda';
-import { Record, Map } from 'immutable';
+import { Record, Map as Map$1 } from 'immutable';
 import Maybe from 'data.maybe';
 import React, { createContext, useState, useMemo, useCallback, Suspense, useContext, useEffect, useRef } from 'react';
 
-const LOADING_ENTRY = "LOADING_ENTRY";
-const LOADING_ENTRY_FAILED = "LOADING_ENTRY_FAILED";
 const RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
 const Entry = Record({
   id: "",
   data: Maybe.Nothing(),
-  updatedAt: Maybe.Nothing(),
-  loadPromise: Maybe.Nothing()
+  updatedAt: Maybe.Nothing()
 }, "RemoteResourceEntry");
 
 const entryReducer = function entryReducer(state, action) {
@@ -22,24 +19,11 @@ const entryReducer = function entryReducer(state, action) {
   }
 
   switch (action.type) {
-    case LOADING_ENTRY:
-      return state.merge({
-        id: action.entryId,
-        loadPromise: Maybe.of(action.promise)
-      });
-
-    case LOADING_ENTRY_FAILED:
-      return state.merge({
-        id: action.entryId,
-        loadPromise: Maybe.Nothing()
-      });
-
     case RECEIVE_ENTRY_DATA:
       return state.merge({
         id: action.entryId,
         data: Maybe.fromNullable(action.data),
-        updatedAt: isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now),
-        loadPromise: Maybe.Nothing()
+        updatedAt: isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now)
       });
 
     default:
@@ -47,8 +31,8 @@ const entryReducer = function entryReducer(state, action) {
   }
 };
 
-const initialResourceState = Map({
-  entriesById: Map()
+const initialResourceState = Map$1({
+  entriesById: Map$1()
 });
 
 const resourceReducer = function resourceReducer(state, action) {
@@ -65,8 +49,8 @@ const resourceReducer = function resourceReducer(state, action) {
   }
 };
 
-const initialRootState = Map({
-  resourcesById: Map()
+const initialRootState = Map$1({
+  resourcesById: Map$1()
 });
 
 const rootReducer = function rootReducer(state, action) {
@@ -105,12 +89,9 @@ const selectEntry = function selectEntry(state, _ref2) {
 };
 
 const createRemoteResource = (_ref) => {
-  let _ref$load = _ref.load,
-      load = _ref$load === void 0 ? () => Promise.resolve() : _ref$load,
-      _ref$save = _ref.save,
-      save = _ref$save === void 0 ? () => Promise.resolve() : _ref$save,
-      _ref$delete = _ref.delete,
-      destroy = _ref$delete === void 0 ? () => Promise.resolve() : _ref$delete,
+  let load = _ref.load,
+      save = _ref.save,
+      destroy = _ref.delete,
       _ref$initialValue = _ref.initialValue,
       initialValue = _ref$initialValue === void 0 ? null : _ref$initialValue,
       _ref$invalidateAfter = _ref.invalidateAfter,
@@ -124,8 +105,10 @@ const createRemoteResource = (_ref) => {
     return args.join("-") || "INDEX";
   } : _ref$createEntryId;
   const resourceId = uuid();
+  const loadingPromisesByEntryId = new Map();
   return {
     id: resourceId,
+    loadingPromisesByEntryId,
     createEntryId,
     initialValue,
     invalidateAfter,
@@ -164,7 +147,8 @@ const Context = createContext({
 
 const RemoteResourceBoundary = (_ref) => {
   let children = _ref.children,
-      onLoadError = _ref.onLoadError,
+      _ref$onLoadError = _ref.onLoadError,
+      onLoadError = _ref$onLoadError === void 0 ? () => {} : _ref$onLoadError,
       _ref$fallback = _ref.fallback,
       fallback = _ref$fallback === void 0 ? null : _ref$fallback,
       _ref$renderError = _ref.renderError,
@@ -210,20 +194,18 @@ const useResourceActions = function useResourceActions(resource, args) {
         now: Date.now()
       });
     }, [data]),
-    refresh: () => resource.load(...args).then(data => {
+    refresh: useCallback(() => resource.loadingPromisesByEntryId.get(entryId) || // We need to store the promise so that if the component gets re-mounted
+    // while the promise is pending we have the ability to throw it.
+    resource.loadingPromisesByEntryId.set(entryId, resource.load(...args).then(data => {
       resource.dispatch({
         type: RECEIVE_ENTRY_DATA,
         entryId,
         data,
         now: Date.now()
       });
-    }).catch(error => {
-      registerError(error);
-      resource.dispatch({
-        type: LOADING_ENTRY_FAILED,
-        entryId
-      });
-    })
+    }).catch(registerError).finally(() => {
+      resource.loadingPromisesByEntryId.delete(entryId);
+    })).get(entryId), args)
   };
 
   if (resource.save) {
@@ -256,24 +238,16 @@ const useResourceState = function useResourceState(resource, args) {
 
   const data = maybeEntry.chain(entry => entry.data).getOrElse(resource.initialValue);
   const cacheInvalid = maybeEntry.map(entry => entry.updatedAt + resource.invalidateAfter < Date.now()).getOrElse(data === resource.initialValue);
-  const loadPromise = maybeEntry.chain(entry => entry.loadPromise).getOrElse(null);
+  const loadPromise = resource.loadingPromisesByEntryId.get(entryId);
   const actions = useResourceActions(resource, args);
-  useEffect(() => // Important! The return value is used to unsubsribe from the store when necessary.
+  useEffect(() => // Important! The return value is used to unsubscribe from the store when necessary.
   resource.onChange(() => {
     setEntry(resource.getEntry(entryId));
   }), [entryId]);
   const isFirstRender = useFirstRender();
 
   if (isFirstRender && cacheInvalid && !loadPromise) {
-    const promise = actions.refresh(); // We need to store the promise so that if the component gets re-mounted
-    // while the promise is pending we have the ability to throw it.
-
-    resource.dispatch({
-      type: LOADING_ENTRY,
-      entryId,
-      promise
-    });
-    throw promise;
+    throw actions.refresh();
   } else if (loadPromise) {
     throw loadPromise;
   }

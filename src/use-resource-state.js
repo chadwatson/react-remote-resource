@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LOADING_ENTRY, RECEIVE_ENTRY_DATA } from "./store";
+import { RECEIVE_ENTRY_DATA } from "./store";
 import useResourceActions from "./use-resource-actions";
 
 const useFirstRender = () => {
@@ -17,9 +17,6 @@ const useResourceState = (resource, args = []) => {
   const cacheInvalid = maybeEntry
     .map(entry => entry.updatedAt + resource.invalidateAfter < Date.now())
     .getOrElse(data === resource.initialValue);
-  const loadPromise = maybeEntry
-    .chain(entry => entry.loadPromise)
-    .getOrElse(null);
   const actions = useResourceActions(resource, args);
 
   useEffect(
@@ -32,16 +29,9 @@ const useResourceState = (resource, args = []) => {
   );
 
   const isFirstRender = useFirstRender();
+  const loadPromise = resource.loadingPromisesByEntryId.get(entryId);
   if (isFirstRender && cacheInvalid && !loadPromise) {
-    const promise = actions.refresh();
-    // We need to store the promise so that if the component gets re-mounted
-    // while the promise is pending we have the ability to throw it.
-    resource.dispatch({
-      type: LOADING_ENTRY,
-      entryId,
-      promise
-    });
-    throw promise;
+    throw actions.refresh();
   } else if (loadPromise) {
     throw loadPromise;
   }

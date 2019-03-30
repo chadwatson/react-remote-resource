@@ -3,38 +3,24 @@ import { isNil } from "ramda";
 import { Map, Record } from "immutable";
 import Maybe from "data.maybe";
 
-export const LOADING_ENTRY = "LOADING_ENTRY";
-export const LOADING_ENTRY_FAILED = "LOADING_ENTRY_FAILED";
 export const RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
 
 const Entry = Record(
   {
     id: "",
     data: Maybe.Nothing(),
-    updatedAt: Maybe.Nothing(),
-    loadPromise: Maybe.Nothing()
+    updatedAt: Maybe.Nothing()
   },
   "RemoteResourceEntry"
 );
 
 const entryReducer = (state = Entry(), action) => {
   switch (action.type) {
-    case LOADING_ENTRY:
-      return state.merge({
-        id: action.entryId,
-        loadPromise: Maybe.of(action.promise)
-      });
-    case LOADING_ENTRY_FAILED:
-      return state.merge({
-        id: action.entryId,
-        loadPromise: Maybe.Nothing()
-      });
     case RECEIVE_ENTRY_DATA:
       return state.merge({
         id: action.entryId,
         data: Maybe.fromNullable(action.data),
-        updatedAt: isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now),
-        loadPromise: Maybe.Nothing()
+        updatedAt: isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now)
       });
     default:
       return state;
