@@ -95,7 +95,7 @@ const useProduct = createRemoteResource({
 
   // Optional: A Promise-returing function that resolves with the data or rejects if fails
   // Default: () => Promise.resolve()
-  save: product =>
+  save: product => product.id
       ? fetch(`/api/products/${product.id}`, { method: "PUT", body: JSON.stringify(product) }).then(response => response.json())
       : fetch("/api/products", { method: "POST", body: JSON.stringify(product) }).then(response => response.json()),
 
