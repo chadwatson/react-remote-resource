@@ -1,55 +1,59 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { RECEIVE_ENTRY_DATA } from "./store";
-import useResourceActions from "./use-resource-actions";
+import { useState, useEffect, useContext, useRef } from "react";
+import Context from "./Context";
 
-const useFirstRender = () => {
+const useIsFirstRender = fn => {
   const renderCount = useRef(0);
   renderCount.current = renderCount.current + 1;
   return renderCount.current === 1;
 };
 
 const useResourceState = (resource, args = []) => {
-  const entryId = resource.createEntryId(...args);
-  const [maybeEntry, setEntry] = useState(resource.getEntry(entryId));
-  const data = maybeEntry
-    .chain(entry => entry.data)
-    .getOrElse(resource.initialValue);
-  const cacheInvalid = maybeEntry
-    .map(entry => entry.updatedAt + resource.invalidateAfter < Date.now())
-    .getOrElse(data === resource.initialValue);
-  const actions = useResourceActions(resource, args);
+  const [state, setState] = useState(resource.getState());
+  const { registerError } = useContext(Context);
+  const entryId = args.length ? args.join("-") : "INDEX";
 
   useEffect(
     () =>
-      // Important! The return value is used to unsubscribe from the store when necessary.
-      resource.onChange(() => {
-        setEntry(resource.getEntry(entryId));
+      // Important! The return value is used to unsubscribe from the store
+      resource.subscribe(() => {
+        const nextState = resource.getState();
+        if (nextState !== state) {
+          setState(nextState);
+        }
       }),
-    [entryId]
+    [state]
   );
 
-  const isFirstRender = useFirstRender();
-  const loadPromise = resource.loadingPromisesByEntryId.get(entryId);
-  if (isFirstRender && cacheInvalid && !loadPromise) {
-    throw actions.refresh();
-  } else if (loadPromise) {
-    throw loadPromise;
+  const isFirstRender = useIsFirstRender();
+  if (
+    isFirstRender &&
+    !resource.pendingLoaders.promisesById.get(entryId) &&
+    !resource.pendingLoaders.queue.length
+  ) {
+    const result = resource.loader(resource.getState(), false)(...args);
+    if (result instanceof Promise) {
+      const pending = result
+        .then(resource.setState)
+        .catch(registerError)
+        .finally(() => {
+          resource.pendingLoaders.promisesById.delete(entryId);
+          resource.pendingLoaders.queue.shift();
+        });
+      resource.pendingLoaders.queue.push(entryId);
+      resource.pendingLoaders.promisesById.set(entryId, pending);
+      throw pending;
+    } else {
+      resource.setState(result);
+    }
+  } else if (
+    resource.pendingLoaders.promisesById.get(resource.pendingLoaders.queue[0])
+  ) {
+    throw resource.pendingLoaders.promisesById.get(
+      resource.pendingLoaders.queue[0]
+    );
   }
 
-  return [
-    data,
-    useCallback(
-      nextData => {
-        resource.dispatch({
-          type: RECEIVE_ENTRY_DATA,
-          entryId,
-          data: typeof nextData === "function" ? nextData(data) : nextData,
-          now: Date.now()
-        });
-      },
-      [data]
-    )
-  ];
+  return [state, resource.setState];
 };
 
 export default useResourceState;

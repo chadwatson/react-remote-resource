@@ -1,40 +1,45 @@
 import uuid from "uuid/v1";
-import store, { selectEntry, selectResource } from "./store";
+import store, { selectResource, RECEIVE_STATE } from "./store";
 
-const createRemoteResource = ({
-  load,
-  save,
-  delete: destroy,
-  initialValue = null,
-  invalidateAfter = 300000,
-  createEntryId = (...args) => args.join("-") || "INDEX"
-}) => {
+const createRemoteResource = loader => {
   const resourceId = uuid();
-  const loadingPromisesByEntryId = new Map();
+
+  const getResourceState = () =>
+    selectResource(store.getState(), { resourceId });
+
+  const setResourceState = nextState => {
+    dispatch({
+      type: RECEIVE_STATE,
+      state:
+        typeof nextState === "function"
+          ? nextState(getResourceState())
+          : nextState
+    });
+  };
+
+  const dispatch = action => store.dispatch({ ...action, resourceId });
 
   return {
     id: resourceId,
-    loadingPromisesByEntryId,
-    createEntryId,
-    initialValue,
-    invalidateAfter,
-    load,
-    save,
-    delete: destroy,
-    getEntry: entryId => selectEntry(store.getState(), { resourceId, entryId }),
-    onChange: onChange => {
-      let currentState = selectResource(store.getState(), { resourceId });
+    loader,
+    refresh: (...args) =>
+      loader(getResourceState(), true)(...args).then(setResourceState),
+    pendingLoaders: {
+      queue: [],
+      promisesById: new Map()
+    },
+    getState: getResourceState,
+    setState: setResourceState,
+    subscribe: onChange => {
+      let currentState = getResourceState();
       return store.subscribe(() => {
-        const nextResourceState = selectResource(store.getState(), {
-          resourceId
-        });
+        const nextResourceState = getResourceState();
         if (nextResourceState !== currentState) {
           currentState = nextResourceState;
           onChange();
         }
       });
-    },
-    dispatch: action => store.dispatch({ ...action, resourceId })
+    }
   };
 };
 

@@ -7,57 +7,13 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
 var uuid = _interopDefault(require('uuid/v1'));
 var redux = require('redux');
-var ramda = require('ramda');
 var immutable = require('immutable');
-var Maybe = _interopDefault(require('data.maybe'));
 var React = require('react');
 var React__default = _interopDefault(React);
+var Maybe = _interopDefault(require('data.maybe'));
+var ramda = require('ramda');
 
-var RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
-var Entry = immutable.Record({
-  id: "",
-  data: Maybe.Nothing(),
-  updatedAt: Maybe.Nothing()
-}, "RemoteResourceEntry");
-
-var entryReducer = function entryReducer(state, action) {
-  if (state === void 0) {
-    state = Entry();
-  }
-
-  switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.merge({
-        id: action.entryId,
-        data: Maybe.fromNullable(action.data),
-        updatedAt: ramda.isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now)
-      });
-
-    default:
-      return state;
-  }
-};
-
-var initialResourceState = immutable.Map({
-  entriesById: immutable.Map()
-});
-
-var resourceReducer = function resourceReducer(state, action) {
-  if (state === void 0) {
-    state = initialResourceState;
-  }
-
-  switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.updateIn(["entriesById", action.entryId], function (entryState) {
-        return entryReducer(entryState, action);
-      });
-
-    default:
-      return state;
-  }
-};
-
+var RECEIVE_STATE = "RECEIVE_STATE";
 var initialRootState = immutable.Map({
   resourcesById: immutable.Map()
 });
@@ -68,10 +24,8 @@ var rootReducer = function rootReducer(state, action) {
   }
 
   switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.updateIn(["resourcesById", action.resourceId], function (resourceState) {
-        return resourceReducer(resourceState, action);
-      });
+    case RECEIVE_STATE:
+      return state.setIn(["resourcesById", action.resourceId], action.state);
 
     default:
       return state;
@@ -85,76 +39,62 @@ var selectResource = function selectResource(state, _ref) {
   }
 
   var resourceId = _ref.resourceId;
-  return Maybe.fromNullable(state.getIn(["resourcesById", resourceId]));
-};
-var selectEntry = function selectEntry(state, _ref2) {
-  if (state === void 0) {
-    state = initialRootState;
-  }
-
-  var resourceId = _ref2.resourceId,
-      entryId = _ref2.entryId;
-  return selectResource(state, {
-    resourceId: resourceId
-  }).chain(function (resource) {
-    return Maybe.fromNullable(resource.getIn(["entriesById", entryId]));
-  });
+  return state.getIn(["resourcesById", resourceId]);
 };
 
-var createRemoteResource = function createRemoteResource(_ref) {
-  var load = _ref.load,
-      save = _ref.save,
-      destroy = _ref.delete,
-      _ref$initialValue = _ref.initialValue,
-      initialValue = _ref$initialValue === void 0 ? null : _ref$initialValue,
-      _ref$invalidateAfter = _ref.invalidateAfter,
-      invalidateAfter = _ref$invalidateAfter === void 0 ? 300000 : _ref$invalidateAfter,
-      _ref$createEntryId = _ref.createEntryId,
-      createEntryId = _ref$createEntryId === void 0 ? function () {
-    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-      args[_key] = arguments[_key];
-    }
-
-    return args.join("-") || "INDEX";
-  } : _ref$createEntryId;
+var createRemoteResource = function createRemoteResource(loader) {
   var resourceId = uuid();
-  var loadingPromisesByEntryId = new Map();
+
+  var getResourceState = function getResourceState() {
+    return selectResource(store.getState(), {
+      resourceId: resourceId
+    });
+  };
+
+  var setResourceState = function setResourceState(nextState) {
+    dispatch({
+      type: RECEIVE_STATE,
+      state: typeof nextState === "function" ? nextState(getResourceState()) : nextState
+    });
+  };
+
+  var dispatch = function dispatch(action) {
+    return store.dispatch(_extends({}, action, {
+      resourceId: resourceId
+    }));
+  };
+
   return {
     id: resourceId,
-    loadingPromisesByEntryId: loadingPromisesByEntryId,
-    createEntryId: createEntryId,
-    initialValue: initialValue,
-    invalidateAfter: invalidateAfter,
-    load: load,
-    save: save,
-    delete: destroy,
-    getEntry: function getEntry(entryId) {
-      return selectEntry(store.getState(), {
-        resourceId: resourceId,
-        entryId: entryId
-      });
+    loader: loader,
+    refresh: function refresh() {
+      return loader(getResourceState(), true).apply(void 0, arguments).then(setResourceState);
     },
-    onChange: function onChange(_onChange) {
-      var currentState = selectResource(store.getState(), {
-        resourceId: resourceId
-      });
+    pendingLoaders: {
+      queue: [],
+      promisesById: new Map()
+    },
+    getState: getResourceState,
+    setState: setResourceState,
+    subscribe: function subscribe(onChange) {
+      var currentState = getResourceState();
       return store.subscribe(function () {
-        var nextResourceState = selectResource(store.getState(), {
-          resourceId: resourceId
-        });
+        var nextResourceState = getResourceState();
 
         if (nextResourceState !== currentState) {
           currentState = nextResourceState;
-
-          _onChange();
+          onChange();
         }
       });
-    },
-    dispatch: function dispatch(action) {
-      return store.dispatch(_extends({}, action, {
-        resourceId: resourceId
-      }));
     }
+  };
+};
+
+var once = function once(fn) {
+  return function (currentState, refresh) {
+    return refresh || !currentState ? fn : function () {
+      return currentState;
+    };
   };
 };
 
@@ -197,56 +137,29 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   }, children)));
 };
 
-var useResourceActions = function useResourceActions(resource, args) {
-  if (args === void 0) {
-    args = [];
+var useAutoSave = function useAutoSave(value, save, delay) {
+  if (delay === void 0) {
+    delay = 1000;
   }
 
-  var entryId = resource.createEntryId.apply(resource, args);
-
-  var _useContext = React.useContext(Context),
-      registerError = _useContext.registerError;
-
-  var data = resource.getEntry(entryId).chain(function (entry) {
-    return entry.data;
-  }).getOrElse(resource.initialValue);
-  var actions = {
-    set: React.useCallback(function (nextData) {
-      resource.dispatch({
-        type: RECEIVE_ENTRY_DATA,
-        entryId: entryId,
-        data: typeof nextData === "function" ? nextData(data) : nextData,
-        now: Date.now()
-      });
-    }, [data]),
-    refresh: React.useCallback(function () {
-      return resource.loadingPromisesByEntryId.get(entryId) || // We need to store the promise so that if the component gets re-mounted
-      // while the promise is pending we have the ability to throw it.
-      resource.loadingPromisesByEntryId.set(entryId, resource.load.apply(resource, args).then(function (data) {
-        resource.dispatch({
-          type: RECEIVE_ENTRY_DATA,
-          entryId: entryId,
-          data: data,
-          now: Date.now()
-        });
-      }).catch(registerError).finally(function () {
-        resource.loadingPromisesByEntryId.delete(entryId);
-      })).get(entryId);
-    }, args)
-  };
-
-  if (resource.save) {
-    actions.save = resource.save;
-  }
-
-  if (resource.delete) {
-    actions.delete = resource.delete;
-  }
-
-  return actions;
+  React.useEffect(function () {
+    var timeout = setTimeout(function () {
+      return save(value);
+    }, delay);
+    return function () {
+      clearTimeout(timeout);
+    };
+  }, [value]);
+  React.useEffect(function () {
+    return function () {
+      if (value) {
+        save(value);
+      }
+    };
+  }, []);
 };
 
-var useFirstRender = function useFirstRender() {
+var useIsFirstRender = function useIsFirstRender(fn) {
   var renderCount = React.useRef(0);
   renderCount.current = renderCount.current + 1;
   return renderCount.current === 1;
@@ -257,43 +170,46 @@ var useResourceState = function useResourceState(resource, args) {
     args = [];
   }
 
-  var entryId = resource.createEntryId.apply(resource, args);
+  var _useState = React.useState(resource.getState()),
+      state = _useState[0],
+      setState = _useState[1];
 
-  var _useState = React.useState(resource.getEntry(entryId)),
-      maybeEntry = _useState[0],
-      setEntry = _useState[1];
+  var _useContext = React.useContext(Context),
+      registerError = _useContext.registerError;
 
-  var data = maybeEntry.chain(function (entry) {
-    return entry.data;
-  }).getOrElse(resource.initialValue);
-  var cacheInvalid = maybeEntry.map(function (entry) {
-    return entry.updatedAt + resource.invalidateAfter < Date.now();
-  }).getOrElse(data === resource.initialValue);
-  var loadPromise = resource.loadingPromisesByEntryId.get(entryId);
-  var actions = useResourceActions(resource, args);
+  var entryId = args.length ? args.join("-") : "INDEX";
   React.useEffect(function () {
-    return (// Important! The return value is used to unsubscribe from the store when necessary.
-      resource.onChange(function () {
-        setEntry(resource.getEntry(entryId));
+    return (// Important! The return value is used to unsubscribe from the store
+      resource.subscribe(function () {
+        var nextState = resource.getState();
+
+        if (nextState !== state) {
+          setState(nextState);
+        }
       })
     );
-  }, [entryId]);
-  var isFirstRender = useFirstRender();
+  }, [state]);
+  var isFirstRender = useIsFirstRender();
 
-  if (isFirstRender && cacheInvalid && !loadPromise) {
-    throw actions.refresh();
-  } else if (loadPromise) {
-    throw loadPromise;
+  if (isFirstRender && !resource.pendingLoaders.promisesById.get(entryId) && !resource.pendingLoaders.queue.length) {
+    var result = resource.loader(resource.getState(), false).apply(void 0, args);
+
+    if (result instanceof Promise) {
+      var pending = result.then(resource.setState).catch(registerError).finally(function () {
+        resource.pendingLoaders.promisesById.delete(entryId);
+        resource.pendingLoaders.queue.shift();
+      });
+      resource.pendingLoaders.queue.push(entryId);
+      resource.pendingLoaders.promisesById.set(entryId, pending);
+      throw pending;
+    } else {
+      resource.setState(result);
+    }
+  } else if (resource.pendingLoaders.promisesById.get(resource.pendingLoaders.queue[0])) {
+    throw resource.pendingLoaders.promisesById.get(resource.pendingLoaders.queue[0]);
   }
 
-  return [data, React.useCallback(function (nextData) {
-    resource.dispatch({
-      type: RECEIVE_ENTRY_DATA,
-      entryId: entryId,
-      data: typeof nextData === "function" ? nextData(data) : nextData,
-      now: Date.now()
-    });
-  }, [data])];
+  return [state, resource.setState];
 };
 
 var useSuspense = function useSuspense(fn) {
@@ -325,8 +241,35 @@ var useSuspense = function useSuspense(fn) {
   };
 };
 
+var withLens = ramda.curry(function (getter, setter, loader) {
+  return function (currentState, refresh) {
+    return function () {
+      return refresh || !getter(currentState).apply(void 0, arguments) ? loader.apply(void 0, arguments).then(setter(currentState).apply(void 0, arguments)) : currentState;
+    };
+  };
+});
+
+var withTimeout = ramda.curry(function (ms, loader) {
+  var lastFetch = null;
+  return function (currentState, refresh) {
+    return function () {
+      var now = Date.now();
+
+      if (refresh || lastFetch + ms < now) {
+        lastFetch = now;
+        return loader(currentState, true).apply(void 0, arguments);
+      }
+
+      return currentState;
+    };
+  };
+});
+
 exports.createRemoteResource = createRemoteResource;
+exports.once = once;
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
+exports.useAutoSave = useAutoSave;
 exports.useResourceState = useResourceState;
-exports.useResourceActions = useResourceActions;
 exports.useSuspense = useSuspense;
+exports.withLens = withLens;
+exports.withTimeout = withTimeout;
