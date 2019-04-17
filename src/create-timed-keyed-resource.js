@@ -1,19 +1,21 @@
 import { curry } from "ramda";
 import createResource from "./create-resource";
 
-const createTimedKeyedResource = curry((ms, loader) => {
+const createTimedKeyedResource = curry((ms, createKey, loader) => {
   const updatedAt = new Map();
 
   return createResource(
-    (resourceState = {}, [key]) => resourceState[key],
-    (resourceState = {}, [key], data) => {
+    (resourceState = {}, args) => resourceState[createKey(...args)],
+    (resourceState = {}, args, data) => {
+      const key = createKey(...args);
       updatedAt.set(key, Date.now());
       return {
         ...resourceState,
         [key]: data
       };
     },
-    (entryState, [key]) => !!entryState && updatedAt.get(key) + ms < Date.now(),
+    (entryState, args) =>
+      !!entryState && updatedAt.get(createKey(...args)) + ms < Date.now(),
     loader
   );
 });
