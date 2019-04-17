@@ -17,33 +17,5 @@
     "bundled": 8733,
     "minified": 4385,
     "gzipped": 1508
-  },
-  "dist/esm.js": {
-    "bundled": 9741,
-    "minified": 4963,
-    "gzipped": 1721,
-    "treeshaked": {
-      "rollup": {
-        "code": 1110,
-        "import_statements": 217
-      },
-      "webpack": {
-        "code": 2355
-      }
-    }
-  },
-  "dist/esm.min.js": {
-    "bundled": 9741,
-    "minified": 4963,
-    "gzipped": 1721,
-    "treeshaked": {
-      "rollup": {
-        "code": 1110,
-        "import_statements": 217
-      },
-      "webpack": {
-        "code": 2355
-      }
-    }
   }
 }
