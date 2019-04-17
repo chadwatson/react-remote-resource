@@ -139,29 +139,25 @@ const createKeyedResource = curry((createKey, loader) => createResource(function
 
 const createSingleEntryResource = loader => createResource(resourceState => resourceState, (resourceState, args, data) => data, entryState => !!entryState, loader);
 
-const createTimedKeyedResource = curry((ms, loader) => {
+const createTimedKeyedResource = curry((ms, createKey, loader) => {
   const updatedAt = new Map();
-  return createResource(function (resourceState, _ref) {
+  return createResource(function (resourceState, args) {
     if (resourceState === void 0) {
       resourceState = {};
     }
 
-    let key = _ref[0];
-    return resourceState[key];
-  }, function (resourceState, _ref2, data) {
+    return resourceState[createKey(...args)];
+  }, function (resourceState, args, data) {
     if (resourceState === void 0) {
       resourceState = {};
     }
 
-    let key = _ref2[0];
+    const key = createKey(...args);
     updatedAt.set(key, Date.now());
     return _extends({}, resourceState, {
       [key]: data
     });
-  }, (entryState, _ref3) => {
-    let key = _ref3[0];
-    return !!entryState && updatedAt.get(key) + ms < Date.now();
-  }, loader);
+  }, (entryState, args) => !!entryState && updatedAt.get(createKey(...args)) + ms < Date.now(), loader);
 });
 
 const createTimedSingleEntryResource = curry((ms, loader) => {

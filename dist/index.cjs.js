@@ -165,28 +165,26 @@ var createSingleEntryResource = function createSingleEntryResource(loader) {
   }, loader);
 };
 
-var createTimedKeyedResource = ramda.curry(function (ms, loader) {
+var createTimedKeyedResource = ramda.curry(function (ms, createKey, loader) {
   var updatedAt = new Map();
-  return createResource(function (resourceState, _ref) {
+  return createResource(function (resourceState, args) {
     if (resourceState === void 0) {
       resourceState = {};
     }
 
-    var key = _ref[0];
-    return resourceState[key];
-  }, function (resourceState, _ref2, data) {
+    return resourceState[createKey.apply(void 0, args)];
+  }, function (resourceState, args, data) {
     var _extends2;
 
     if (resourceState === void 0) {
       resourceState = {};
     }
 
-    var key = _ref2[0];
+    var key = createKey.apply(void 0, args);
     updatedAt.set(key, Date.now());
     return _extends({}, resourceState, (_extends2 = {}, _extends2[key] = data, _extends2));
-  }, function (entryState, _ref3) {
-    var key = _ref3[0];
-    return !!entryState && updatedAt.get(key) + ms < Date.now();
+  }, function (entryState, args) {
+    return !!entryState && updatedAt.get(createKey.apply(void 0, args)) + ms < Date.now();
   }, loader);
 });
 
