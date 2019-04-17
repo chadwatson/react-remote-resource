@@ -25,7 +25,7 @@ import {
   createResource,
   createSingleEntryResource,
   createTimedKeyedResource,
-  useEntryState,
+  useEntry,
   RemoteResourceBoundary,
 } from "react-remote-resource";
 
@@ -40,8 +40,8 @@ const tweetsResource = createTimedKeyedResource(
 );
 
 const UserInfo = ({ userId }) => {
-  const [user] = useEntryState(userResource, [userId]);
-  const [tweets] = useEntryState(tweetsResource, [userId]);
+  const [user] = useEntry(userResource, [userId]);
+  const [tweets] = useEntry(tweetsResource, [userId]);
 
   return (
     <div>
@@ -55,7 +55,7 @@ const UserInfo = ({ userId }) => {
 };
 
 const Tweets = ({ userId }) => {
-  const [tweets] = useEntryState(tweetsResource, [userId]);
+  const [tweets] = useEntry(tweetsResource, [userId]);
 
   return (
     <>
@@ -135,7 +135,7 @@ type Resource<A> = {
   // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
   subscribe: (() => void) => void,
   // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
-  useEntryState: <A>(...args: Array<any>) => [A, (A | A => A) => void]
+  useEntry: <A>(...args: Array<any>) => [A, (A | A => A) => void]
 };
 ```
 
@@ -208,7 +208,7 @@ const UserProfile = ({ userId }) => (
 );
 ```
 
-### `useEntryState`
+### `useEntry`
 
 A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
 
@@ -217,13 +217,13 @@ Under the hood `react-remote-resource` implements a redux store. Every resource 
 ```jsx
 import {
   createRemoteResouce,
-  useEntryState,
+  useEntry,
   useAutoSave
 } from "react-remote-resource";
 import { savePost, postsResource } from "../resources/posts";
 
 const PostForm = ({ postId }) => {
-  const [post, setPost] = useEntryState(postsResource, [postId]);
+  const [post, setPost] = useEntry(postsResource, [postId]);
 
   useAutoSave(post, savePost);
 
@@ -275,7 +275,7 @@ This is useful for optimistic UIs where the state of the resource is the source 
 ```jsx
 import {
   createRemoteResouce,
-  useEntryState,
+  useEntry,
   useAutoSave
 } from "react-remote-resource";
 import { savePost, usePost } from "../resources/posts";

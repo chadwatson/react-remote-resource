@@ -80,7 +80,7 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
 
       return loader(...args).then(setEntryState(args));
     },
-    useEntryState: function useEntryState() {
+    useEntry: function useEntry() {
       const resourceState = getResourceState();
 
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
@@ -215,12 +215,12 @@ const useAutoSave = function useAutoSave(value, save, delay) {
   }, []);
 };
 
-const useEntryState = function useEntryState(resource, args) {
+const useEntry = function useEntry(resource, args) {
   if (args === void 0) {
     args = [];
   }
 
-  return resource.useEntryState(...args);
+  return resource.useEntry(...args);
 };
 
 const useSuspense = fn => {
@@ -248,4 +248,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { createKeyedResource, createResource, createSingleEntryResource, createTimedKeyedResource, createTimedSingleEntryResource, RemoteResourceBoundary, useAutoSave, useEntryState, useSuspense };
+export { createKeyedResource, createResource, createSingleEntryResource, createTimedKeyedResource, createTimedSingleEntryResource, RemoteResourceBoundary, useAutoSave, useEntry, useSuspense };

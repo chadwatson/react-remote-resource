@@ -44,7 +44,7 @@ const createResource = curry(
       getState: getResourceState,
       setState: setResourceState,
       refresh: (...args) => loader(...args).then(setEntryState(args)),
-      useEntryState: (...args) => {
+      useEntry: (...args) => {
         const resourceState = getResourceState();
         const [state, setState] = useState(entryGetter(resourceState, args));
         const { registerError } = useContext(Context);

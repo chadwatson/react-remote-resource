@@ -91,7 +91,7 @@ var createResource = ramda.curry(function (entryGetter, entrySetter, entryPredic
 
       return loader.apply(void 0, args).then(setEntryState(args));
     },
-    useEntryState: function useEntryState() {
+    useEntry: function useEntry() {
       var resourceState = getResourceState();
 
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
@@ -257,12 +257,12 @@ var useAutoSave = function useAutoSave(value, save, delay) {
   }, []);
 };
 
-var useEntryState = function useEntryState(resource, args) {
+var useEntry = function useEntry(resource, args) {
   if (args === void 0) {
     args = [];
   }
 
-  return resource.useEntryState.apply(resource, args);
+  return resource.useEntry.apply(resource, args);
 };
 
 var useSuspense = function useSuspense(fn) {
@@ -301,5 +301,5 @@ exports.createTimedKeyedResource = createTimedKeyedResource;
 exports.createTimedSingleEntryResource = createTimedSingleEntryResource;
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
 exports.useAutoSave = useAutoSave;
-exports.useEntryState = useEntryState;
+exports.useEntry = useEntry;
 exports.useSuspense = useSuspense;

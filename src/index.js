@@ -11,5 +11,5 @@ export {
 } from "./create-timed-single-entry-resource";
 export { default as RemoteResourceBoundary } from "./RemoteResourceBoundary";
 export { default as useAutoSave } from "./use-auto-save";
-export { default as useEntryState } from "./use-entry-state";
+export { default as useEntry } from "./use-entry";
 export { default as useSuspense } from "./use-suspense";
