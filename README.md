@@ -119,15 +119,11 @@ const productsResource = createResource(
 The return value from `createResource` has the following shape:
 
 ```ts
-type Load<A> = (...args: Array<any>) => A | Promise<A>;
-
-type Loader<A> = (currentState: ?A, refresh: boolean) => Load<A>;
-
 type Resource<A> = {
   // The generated UUID for the resource
   id: string,
   // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state
-  refresh: Load<A>,
+  refresh: (...args: Array<any>) => Promise<A>,
   // Returns the current state of the resource
   getState: () => A,
   // A function that takes the next state or a function that receives the current state and returns the next state.
