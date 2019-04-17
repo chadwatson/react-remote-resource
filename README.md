@@ -22,34 +22,26 @@ yarn add react-remote-resource
 
 ```jsx
 import {
-  createRemoteResource,
-  useResourceState,
-  useRefreshResource,
+  createResource,
+  createSingleEntryResource,
+  createTimedKeyedResource,
+  useEntryState,
   RemoteResourceBoundary,
-  withTimeout,
-  once,
-  storeBy
 } from "react-remote-resource";
 
-const userResource = createRemoteResource(
-  once(userId => fetchJson(`/api/users/${userId}`)
+const userResource = createSingleEntryResource(
+  userId => fetchJson(`/api/users/${userId}`
 );
 
-const tweetsResource = createRemoteResource(
-  withTimeout(
-    10000,
-    storeBy(userId => userId, userId => fetchJson(`/api/users/${userId}/tweets`))
-  )
+const tweetsResource = createTimedKeyedResource(
+  10000,
+  userId => userId,
+  userId => fetchJson(`/api/users/${userId}/tweets`)
 );
-
-const useUserTweets = userId => {
-  const [tweetsByUserId] = useResourceState(tweetsResource, [userId]);
-  return tweetsByUserId[userId];
-};
 
 const UserInfo = ({ userId }) => {
-  const [user] = useResourceState(userResource, [userId]);
-  const tweets = useUserTweets(userId);
+  const [user] = useEntryState(userResource, [userId]);
+  const [tweets] = useEntryState(tweetsResource, [userId]);
 
   return (
     <div>
@@ -63,12 +55,11 @@ const UserInfo = ({ userId }) => {
 };
 
 const Tweets = ({ userId }) => {
-  const tweets = useUserTweets(userId);
-  const refreshTweets = useRefreshResource(tweetsResource, [userId]);
+  const [tweets] = useEntryState(tweetsResource, [userId]);
 
   return (
     <>
-      <button type="button" onClick={refreshTweets}>Refresh</button>
+      <button type="button" onClick={() => tweetsResource.refresh(userId)}>Refresh</button>
       <ul>
         {tweets.map(tweet => (
           <li key={tweet.id}>
@@ -103,24 +94,29 @@ const UserProfile = ({ userId }) => (
 
 ## API
 
-### `createRemoteResource`
+### `createResource`
 
-A function that takes a loader function and returns a resource.
+Creates a new resource.
 
 ```javascript
-const productsResource = createRemoteResource(
-  (currentState = {}, refresh) => id =>
-    !currentState[id]
-      ? fetch(`/api/products/${id}`)
-          .then(response => response.json())
-          .then(product => ({ ...currentState, [id]: product }))
-      : currentState
+const productsResource = createResource(
+  // A function that gets an entry from the state.
+  (currentState = {}, [id]) => currentState[id],
+  // A function that sets an entry in the state.
+  (currentState = {}, [id], product) => ({
+    ...currentState,
+    [id]: product
+  }),
+  // A predicate that tests whether the entry is still valid.
+  (product, args) => !!product,
+  // The loader function that fetches data. Should return a promise.
+  id => fetch(`/api/products/${id}`).then(response => response.json())
 );
 ```
 
 #### Resource
 
-The return value from `createRemoteResource` has the following shape:
+The return value from `createResource` has the following shape:
 
 ```ts
 type Load<A> = (...args: Array<any>) => A | Promise<A>;
@@ -131,15 +127,60 @@ type Resource<A> = {
   // The generated UUID for the resource
   id: string,
   // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state
-  loader: Loader<A>,
   refresh: Load<A>,
   // Returns the current state of the resource
   getState: () => A,
   // A function that takes the next state or a function that receives the current state and returns the next state.
   setState: (A | A => A) => void,
   // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
-  subscribe: (() => void) => void
+  subscribe: (() => void) => void,
+  // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
+  useEntryState: <A>(...args: Array<any>) => [A, (A | A => A) => void]
 };
+```
+
+### `createSingleEntryResource`
+
+An opinionated version of `createResource` that assumes there is only one entry in the resource state. The getter function simply returns the last data that was fetched. The setter function simply sets the resource state to the data that was fetched. And the predicate function simply checks if the resource state is not `undefined`. Basically the loader function will only be called once if it successfully resolves.
+
+```javascript
+const myResource = createSingleEntryResource(authToken =>
+  fetch(`/api/about_me?auth_token=${authToken}`)
+);
+```
+
+### `createKeyedResource`
+
+An opinionated version of `createResource` that stores retrieved data in an object literal, allowing you to create a key for each entry. The getter function returns the data that is associated with key that your key creating function returns. The setter function sets the resource state to the data that was fetched. And the predicate function simply checks if the resource state is not `undefined`.
+
+```javascript
+const myResource = createKeyedResource(
+  // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
+  (authToken, userId) => userId,
+  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
+);
+```
+
+### `createTimedSingleEntryResource`
+
+An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
+
+```javascript
+const myResource = createTimedSingleEntryResource(10000, authToken =>
+  fetch(`/api/about_me?auth_token=${authToken}`)
+);
+```
+
+### `createTimedKeyedResource`
+
+An opinionated version of `createKeyedResource` that has the same timeout functionality as `createTimedSingleEntryResource` except that each entry in the resource state can timeout independently.
+
+```javascript
+const myResource = createTimedKeyedResource(
+  10000,
+  (authToken, userId) => userId,
+  (authToken, userId) => fetch(`/api/about_me?auth_token=${authToken}`)
+);
 ```
 
 ### `RemoteResourceBoundary`
@@ -167,7 +208,7 @@ const UserProfile = ({ userId }) => (
 );
 ```
 
-### `useResourceState`
+### `useEntryState`
 
 A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
 
@@ -176,22 +217,13 @@ Under the hood `react-remote-resource` implements a redux store. Every resource 
 ```jsx
 import {
   createRemoteResouce,
-  useResourceState,
+  useEntryState,
   useAutoSave
 } from "react-remote-resource";
 import { savePost, postsResource } from "../resources/posts";
 
-const usePost = postId => {
-  const [postsById, setPosts] = useResourceState(postsResource);
-
-  return [
-    postsById[postId],
-    post => setPosts({ ...postsById, [postId]: post })
-  ];
-};
-
 const PostForm = ({ postId }) => {
-  const [post, setPost] = usePost(postId);
+  const [post, setPost] = useEntryState(postsResource, [postId]);
 
   useAutoSave(post, savePost);
 
@@ -229,105 +261,10 @@ const PostForm = ({ postId }) => {
 
 This hook is very powerful. Let's walk through what happens when it is used:
 
-1. If the state of a resource is `undefined` then its loader will be invoked and the promise thrown.
-2. If the promise rejects, the closest `RemoteResourceBoundary` will handle the error. If the promise resolves, the state will be available to use (as the first item in the tuple).
-3. You can set the state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
-
-### `once`
-
-A utility function that takes a load function and only calls it if there is no current state for a resource. This allows the data to only be fetched once. Any subsequent use of the resource data will be retrieved from the store instead. This prevents making unnecessary network requests for resources that are unlikely to change or that we are confident will only change from a single user session.
-
-```javascript
-import { createRemoteResource, once } from "react-remote-resource";
-
-const userResource = createRemoteResource(
-  once(userId => fetchJson(`/api/users/${userId}`)
-);
-
-```
-
-### `withLens`
-
-A utility function that takes a getter function, a setter function, and a load function. The getter takes the current state of the resource and returns a function that takes the arguments to the load function and returns some substate. The setter function takes the current state of the resource and returns a function that takes the arguments to the load function and returns a function that takes some data and returns the next state of the resource. The load function takes any list of arguments and returns a promise that resolves with some data that will be passed along to the setter. If the getter function returns undefined then the load funtion will be invoked, which will then invoke the setter.
-
-This is very handy if you want your resource to serve as an index of data. And it is flexible enough to allow you keep your data in whatever shape you want.
-
-```javascript
-import { createRemoteResource, withLens } from "react-remote-resource";
-
-const tweetsResource = createRemoteResource(
-  withLens(
-    (currentState = {}) => (authToken, userId) => currentState[userId],
-    (currentState = {}) => (authToken, userId) => tweets => ({
-      ...currentState,
-      [userId]: tweets
-    }),
-    (authToken, userId) =>
-      fetch(`/api/users/${userId}/tweets?auth=${authToken}`).then(res =>
-        res.json()
-      )
-  )
-);
-```
-
-In this example the state of the resource will have the following shape:
-
-```javascript
-{
-  [userId]: tweets
-}
-```
-
-And we can `useResourceState` like normal.
-
-```jsx
-const Tweets = ({ authToken, userId }) => {
-  const [tweetsByUserId] = useResourceState(tweetsResource, [
-    authToken,
-    userId
-  ]);
-
-  return tweetsByUserId[userId].map(tweet => (
-    <Tweet key={tweet.id} tweet={tweet} />
-  ));
-};
-```
-
-### `storeBy`
-
-A utility function that takes a hashing function and a load function. The state of the resource will now be an object literal where the keys are created by the hashing function. If a value does not exist at a given key then the load function will be called and the resolved value will be stored in the object state at the created key. This allows the data for a given key to only be fetched once.
-
-This is just an opinionated version of `withLens`.
-
-```javascript
-import { createRemoteResource, storeBy } from "react-remote-resource";
-
-const tweetsResource = createRemoteResource(
-  storeBy(
-    (authToken, userId) => userId,
-    (authToken, userId) =>
-      fetch(`/api/users/${userId}/tweets?auth=${authToken}`).then(res =>
-        res.json()
-      )
-  )
-);
-```
-
-### `withTimeout`
-
-A utility function that takes a timeout duration in milliseconds and a loader function. This allows you to prevent fetching for a certain amount of time. **Note:** The timeout will be bypassed if `refresh` is called.
-
-```javascript
-import { createRemoteResource, withTimeout } from "react-remote-resource";
-
-const tweetsResource = createRemoteResource(
-  withTimeout(10000, (currentState = {}) => (authToken, userId) =>
-    fetch(`/api/users/${userId}/tweets?auth=${authToken}`)
-      .then(res => res.json())
-      .then(tweets => ({ ...currentState, [userId]: tweets }))
-  )
-);
-```
+1. The getter function (the first argument given to `createResource`) is used to get the entry out of the resource state.
+2. The predicate (the third argument given to `createResource`) is used to test whether or not the entry is valid. If not the loader (the fourth argument) will be invoked and the promise thrown.
+3. If the promise rejects, the closest `RemoteResourceBoundary` will handle the error. If the promise resolves, the setter function (the second argument give to `createResource`) is used to set the resolved data in the resource state.
+4. You can set the entry state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
 
 ### `useAutoSave`
 
@@ -338,7 +275,7 @@ This is useful for optimistic UIs where the state of the resource is the source 
 ```jsx
 import {
   createRemoteResouce,
-  useResourceState,
+  useEntryState,
   useAutoSave
 } from "react-remote-resource";
 import { savePost, usePost } from "../resources/posts";
@@ -400,30 +337,4 @@ const UserForm = () => (
     </Suspense>
   </div>
 );
-```
-
-### `createLensCreator`
-
-```jsx
-const userTweetsLens = createLensCreator(userId => [
-  (currentState = {}) => currentState[userId],
-  (currentState = {}) => userTweets => ({
-    ...currentState,
-    [userId]: userTweets
-  })
-]);
-
-const tweetsResource = createRemoteResource(
-  withLens(userTweetsLens, userId => fetch().then(res => res.json()))
-);
-
-const useUserTweets = userId => useResourceLens(userTweetsLens, [userId]);
-
-const UserTweets = ({ userId }) => {
-  const [userTweets, setUserTweets] = useUserTweets(userId);
-
-  // return (
-  //   ...
-  // );
-};
 ```
