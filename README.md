@@ -122,7 +122,7 @@ The return value from `createResource` has the following shape:
 type Resource<A> = {
   // The generated UUID for the resource
   id: string,
-  // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state
+  // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state. Note: It is up to you to handle a rejected Promise. A `RemoteResourceBoundary` will not catch it.
   refresh: (...args: Array<any>) => Promise<A>,
   // Returns the current state of the resource
   getState: () => A,
@@ -145,6 +145,16 @@ const myResource = createSingleEntryResource(authToken =>
 );
 ```
 
+### `createTimedSingleEntryResource`
+
+An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
+
+```javascript
+const myResource = createTimedSingleEntryResource(10000, authToken =>
+  fetch(`/api/about_me?auth_token=${authToken}`)
+);
+```
+
 ### `createKeyedResource`
 
 An opinionated version of `createResource` that stores retrieved data in an object literal, allowing you to create a key for each entry. The getter function returns the data that is associated with key that your key creating function returns. The setter function sets the resource state to the data that was fetched. And the predicate function simply checks if the resource state is not `undefined`.
@@ -154,16 +164,6 @@ const myResource = createKeyedResource(
   // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
   (authToken, userId) => userId,
   (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
-);
-```
-
-### `createTimedSingleEntryResource`
-
-An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
-
-```javascript
-const myResource = createTimedSingleEntryResource(10000, authToken =>
-  fetch(`/api/about_me?auth_token=${authToken}`)
 );
 ```
 
