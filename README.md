@@ -401,3 +401,29 @@ const UserForm = () => (
   </div>
 );
 ```
+
+### `createLensCreator`
+
+```jsx
+const userTweetsLens = createLensCreator(userId => [
+  (currentState = {}) => currentState[userId],
+  (currentState = {}) => userTweets => ({
+    ...currentState,
+    [userId]: userTweets
+  })
+]);
+
+const tweetsResource = createRemoteResource(
+  withLens(userTweetsLens, userId => fetch().then(res => res.json()))
+);
+
+const useUserTweets = userId => useResourceLens(userTweetsLens, [userId]);
+
+const UserTweets = ({ userId }) => {
+  const [userTweets, setUserTweets] = useUserTweets(userId);
+
+  // return (
+  //   ...
+  // );
+};
+```

@@ -1,10 +1,10 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
+import { curry } from 'ramda';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { Map as Map$1 } from 'immutable';
-import React, { createContext, useState, useMemo, useCallback, Suspense, useEffect, useContext, useRef } from 'react';
 import Maybe from 'data.maybe';
-import { curry } from 'ramda';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
 const initialRootState = Map$1({
@@ -35,7 +35,11 @@ const selectResource = function selectResource(state, _ref) {
   return state.getIn(["resourcesById", resourceId]);
 };
 
-const createRemoteResource = loader => {
+const Context = createContext({
+  registerError: () => {}
+});
+
+const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) => {
   const resourceId = uuid();
 
   const getResourceState = () => selectResource(store.getState(), {
@@ -43,46 +47,129 @@ const createRemoteResource = loader => {
   });
 
   const setResourceState = nextState => {
-    dispatch({
+    store.dispatch({
       type: RECEIVE_STATE,
+      resourceId,
       state: typeof nextState === "function" ? nextState(getResourceState()) : nextState
     });
   };
 
-  const dispatch = action => store.dispatch(_extends({}, action, {
-    resourceId
-  }));
+  const setEntryState = curry((args, state) => setResourceState(entrySetter(getResourceState(), args, state)));
 
+  const subscribe = onChange => {
+    let currentState = getResourceState();
+    return store.subscribe(() => {
+      const nextResourceState = getResourceState();
+
+      if (nextResourceState !== currentState) {
+        currentState = nextResourceState;
+        onChange();
+      }
+    });
+  };
+
+  const pendingLoaders = new Map();
   return {
     id: resourceId,
-    loader,
-    refresh: function refresh() {
-      return loader(getResourceState(), true)(...arguments).then(setResourceState);
-    },
-    pendingLoaders: {
-      queue: [],
-      promisesById: new Map()
-    },
     getState: getResourceState,
     setState: setResourceState,
-    subscribe: onChange => {
-      let currentState = getResourceState();
-      return store.subscribe(() => {
-        const nextResourceState = getResourceState();
+    refresh: function refresh() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
 
-        if (nextResourceState !== currentState) {
-          currentState = nextResourceState;
-          onChange();
+      return loader(...args).then(setEntryState(args));
+    },
+    useEntryState: function useEntryState() {
+      const resourceState = getResourceState();
+
+      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2];
+      }
+
+      const _useState = useState(entryGetter(resourceState, args)),
+            state = _useState[0],
+            setState = _useState[1];
+
+      const _useContext = useContext(Context),
+            registerError = _useContext.registerError;
+
+      const entryId = args.length ? args.join("-") : "INDEX";
+      useEffect(() => // Important! The return value is used to unsubscribe from the store
+      subscribe(() => {
+        const nextState = getResourceState();
+
+        if (nextState !== state) {
+          setState(nextState);
         }
-      });
-    }
+      }), [state]);
+
+      if (pendingLoaders.get(entryId)) {
+        throw pendingLoaders.get(entryId);
+      }
+
+      if (!entryPredicate(entryGetter(resourceState, args), args)) {
+        pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
+          pendingLoaders.delete(entryId);
+        }));
+        throw pendingLoaders.get(entryId);
+      }
+
+      return [state, useCallback(setEntryState(args), args)];
+    },
+    subscribe
   };
-};
+});
 
-const once = fn => (currentState, refresh) => refresh || !currentState ? fn : () => currentState;
+const createKeyedResource = curry((createKey, loader) => createResource(function (resourceState, args) {
+  if (resourceState === void 0) {
+    resourceState = {};
+  }
 
-const Context = createContext({
-  registerError: () => {}
+  return resourceState[createKey(...args)];
+}, function (resourceState, args, data) {
+  if (resourceState === void 0) {
+    resourceState = {};
+  }
+
+  return _extends({}, resourceState, {
+    [createKey(...args)]: data
+  });
+}, entryState => !!entryState, loader));
+
+const createSingleEntryResource = loader => createResource(resourceState => resourceState, (resourceState, args, data) => data, entryState => !!entryState, loader);
+
+const createTimedKeyedResource = curry((ms, loader) => {
+  const updatedAt = new Map();
+  return createResource(function (resourceState, _ref) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    let key = _ref[0];
+    return resourceState[key];
+  }, function (resourceState, _ref2, data) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    let key = _ref2[0];
+    updatedAt.set(key, Date.now());
+    return _extends({}, resourceState, {
+      [key]: data
+    });
+  }, (entryState, _ref3) => {
+    let key = _ref3[0];
+    return !!entryState && updatedAt.get(key) + ms < Date.now();
+  }, loader);
+});
+
+const createTimedSingleEntryResource = curry((ms, loader) => {
+  let updatedAt = 0;
+  return createResource(resourceState => resourceState, (resourceState, args, data) => {
+    updatedAt = Date.now();
+    return data;
+  }, entryState => !!entryState && updatedAt + ms < Date.now(), loader);
 });
 
 const RemoteResourceBoundary = (_ref) => {
@@ -132,54 +219,12 @@ const useAutoSave = function useAutoSave(value, save, delay) {
   }, []);
 };
 
-const useIsFirstRender = fn => {
-  const renderCount = useRef(0);
-  renderCount.current = renderCount.current + 1;
-  return renderCount.current === 1;
-};
-
-const useResourceState = function useResourceState(resource, args) {
+const useEntryState = function useEntryState(resource, args) {
   if (args === void 0) {
     args = [];
   }
 
-  const _useState = useState(resource.getState()),
-        state = _useState[0],
-        setState = _useState[1];
-
-  const _useContext = useContext(Context),
-        registerError = _useContext.registerError;
-
-  const entryId = args.length ? args.join("-") : "INDEX";
-  useEffect(() => // Important! The return value is used to unsubscribe from the store
-  resource.subscribe(() => {
-    const nextState = resource.getState();
-
-    if (nextState !== state) {
-      setState(nextState);
-    }
-  }), [state]);
-  const isFirstRender = useIsFirstRender();
-
-  if (isFirstRender && !resource.pendingLoaders.promisesById.get(entryId) && !resource.pendingLoaders.queue.length) {
-    const result = resource.loader(resource.getState(), false)(...args);
-
-    if (result instanceof Promise) {
-      const pending = result.then(resource.setState).catch(registerError).finally(() => {
-        resource.pendingLoaders.promisesById.delete(entryId);
-        resource.pendingLoaders.queue.shift();
-      });
-      resource.pendingLoaders.queue.push(entryId);
-      resource.pendingLoaders.promisesById.set(entryId, pending);
-      throw pending;
-    } else {
-      resource.setState(result);
-    }
-  } else if (resource.pendingLoaders.promisesById.get(resource.pendingLoaders.queue[0])) {
-    throw resource.pendingLoaders.promisesById.get(resource.pendingLoaders.queue[0]);
-  }
-
-  return [state, resource.setState];
+  return resource.useEntryState(...args);
 };
 
 const useSuspense = fn => {
@@ -207,22 +252,4 @@ const useSuspense = fn => {
   }));
 };
 
-const withLens = curry((getter, setter, loader) => (currentState, refresh) => function () {
-  return refresh || !getter(currentState)(...arguments) ? loader(...arguments).then(setter(currentState)(...arguments)) : currentState;
-});
-
-const withTimeout = curry((ms, loader) => {
-  let lastFetch = null;
-  return (currentState, refresh) => function () {
-    const now = Date.now();
-
-    if (refresh || lastFetch + ms < now) {
-      lastFetch = now;
-      return loader(currentState, true)(...arguments);
-    }
-
-    return currentState;
-  };
-});
-
-export { createRemoteResource, once, RemoteResourceBoundary, useAutoSave, useResourceState, useSuspense, withLens, withTimeout };
+export { createKeyedResource, createResource, createSingleEntryResource, createTimedKeyedResource, createTimedSingleEntryResource, RemoteResourceBoundary, useAutoSave, useEntryState, useSuspense };
