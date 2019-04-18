@@ -18,28 +18,30 @@ npm install react-remote-resource --save
 yarn add react-remote-resource
 ```
 
-### Simple Example
+### Example
 
 ```jsx
 import {
-  createRemoteResource,
-  useResourceState,
-  RemoteResourceBoundary
+  createResource,
+  createSingleEntryResource,
+  createTimedKeyedResource,
+  useEntry,
+  RemoteResourceBoundary,
 } from "react-remote-resource";
 
-const userResource = createRemoteResource({
-  load: userId => fetchJson(`/api/users/${userId}`),
-  invalidateAfter: 60 * 60 * 1000 // 1 hour
-});
+const userResource = createSingleEntryResource(
+  userId => fetchJson(`/api/users/${userId}`
+);
 
-const tweetsResource = createRemoteResource({
-  load: userId => fetchJson(`/api/users/${userId}/tweets`),
-  invalidateAfter: 10000 // 10 seconds
-});
+const tweetsResource = createTimedKeyedResource(
+  10000,
+  userId => userId,
+  userId => fetchJson(`/api/users/${userId}/tweets`)
+);
 
 const UserInfo = ({ userId }) => {
-  const [user] = useResourceState(userResource, [userId]);
-  const [tweets] = useResourceState(tweetsResource, [userId]);
+  const [user] = useEntry(userResource, [userId]);
+  const [tweets] = useEntry(tweetsResource, [userId]);
 
   return (
     <div>
@@ -53,28 +55,36 @@ const UserInfo = ({ userId }) => {
 };
 
 const Tweets = ({ userId }) => {
-  const [tweets] = useResourceState(tweetsResource, [userId]);
+  const [tweets] = useEntry(tweetsResource, [userId]);
 
   return (
-    <ul>
-      {tweets.map(tweet => (
-        <li key={tweet.id}>
-          <article>
-            <p>{tweet.message}</p>
-            <footer>
-              <small>{tweet.date}</small>
-            </footer>
-          </article>
-        </li>
-      ))}
-    </ul>
+    <>
+      <button type="button" onClick={() => tweetsResource.refresh(userId)}>Refresh</button>
+      <ul>
+        {tweets.map(tweet => (
+          <li key={tweet.id}>
+            <article>
+              <p>{tweet.message}</p>
+              <footer>
+                <small>{tweet.date}</small>
+              </footer>
+            </article>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 };
 
 const UserProfile = ({ userId }) => (
   <RemoteResourceBoundary
     fallback={<p>Loading...</p>}
-    renderError={error => <p>{error}</p>}
+    renderError={(error, retry) => (
+      <div>
+        <p>{error}</p>
+        <button onClick={retry}>Retry</button>
+      </div>
+    )}
   >
     <UserInfo userId={userId} />
     <Tweets userId={userId} />
@@ -84,139 +94,94 @@ const UserProfile = ({ userId }) => (
 
 ## API
 
-### `createRemoteResource`
+### `createResource`
 
-A function that takes a config object and returns a resource.
+Creates a new resource.
 
-```jsx
-const useProduct = createRemoteResource({
-  // Required: A Promise-returing function that resolves with the data or rejects if fails
-  load: id => fetch(`/api/products/${id}`).then(response => response.json()),
-
-  // Optional: A Promise-returing function that resolves with the data or rejects if fails
-  // Default: () => Promise.resolve()
-  save: product => product.id
-      ? fetch(`/api/products/${product.id}`, { method: "PUT", body: JSON.stringify(product) }).then(response => response.json())
-      : fetch("/api/products", { method: "POST", body: JSON.stringify(product) }).then(response => response.json()),
-
-  // Optional: A Promise-returning function
-  // Default: () => Promise.resolve()
-  delete: product => fetch(`/api/products/${product.id}`, { method: "DELETE" }),
-
-  // Optional: The amount of time in milliseconds since the last update in which the cache is considered stale.
-  // Default: 300000 (5 minutes)
-  invalidateAfter: 10000,
-
-  // Optional: A function that creates an entry id from the arguments given to the hook
-  // Default: args => args.join("-") || "INDEX"
-  createEntryId: id => id.toString().toUpperCase(),
-
-  // Optional: The value to fall back to if no data has been fetched
-  initialValue: []
-});
+```javascript
+const productsResource = createResource(
+  // A function that gets an entry from the state.
+  (currentState = {}, [id]) => currentState[id],
+  // A function that sets an entry in the state.
+  (currentState = {}, [id], product) => ({
+    ...currentState,
+    [id]: product
+  }),
+  // A predicate that tests whether the entry is still valid.
+  (product, args) => !!product,
+  // The loader function that fetches data. Should return a promise.
+  id => fetch(`/api/products/${id}`).then(response => response.json())
+);
 ```
 
 #### Resource
 
-The return value from `createRemoteResource` has the following shape:
+The return value from `createResource` has the following shape:
 
 ```ts
-{
+type Resource<A> = {
+  // The generated UUID for the resource
   id: string,
-  createEntryId: (...args: Array<any>) => string,
-  initialValue: any,
-  invalidateAfter: number,
-  load: (...args: Array<any>) => Promise<any>,
-  save: (...args: Array<any>) => Promise<any>,
-  delete: (...args: Array<any>) => Promise<any>,
-  getEntry: string => Immutable.RecordOf<{
-    id: string,
-    data: Maybe<any>,
-    updatedAt: Maybe<number>, // Unix timestamp
-    loadPromise: Maybe<Promise<any>>
-  }>,
-  onChange: (() => void) => void, // Allows for subscribing to state changes. Basically a wrapper around store.subscribe.
-  dispatch: ({ type: string }) => void // store.dispatch that adds `resourceId` to the action payload
+  // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state. Note: It is up to you to handle a rejected Promise. A `RemoteResourceBoundary` will not catch it.
+  refresh: (...args: Array<any>) => Promise<A>,
+  // Returns the current state of the resource
+  getState: () => A,
+  // A function that takes the next state or a function that receives the current state and returns the next state.
+  setState: (A | A => A) => void,
+  // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
+  subscribe: (() => void) => void,
+  // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
+  useEntry: <A>(...args: Array<any>) => [A, (A | A => A) => void]
 };
 ```
 
-### `useResourceState`
+### `createSingleEntryResource`
 
-A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state! Under the hood `react-remote-resource` implements a redux store. Every resource get its own state and there can be multiple entries for each resource, depending on the arguments you pass into `useResourceState` and the optional `createEntryId` option that you can pass into `createRemoteResource`. By default every new combination of arguments will create a new entry in the store.
+Creates a resource that only has one entry. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched.
 
-```jsx
-import { useResourceState } from "react-remote-resource";
-
-const ProductCategory = ({ categoryId }) => {
-  const [categoriesById] = useResourceState(categoriesResource);
-  const [products] = useResourceState(productsResource, [categoryId]);
-
-  return (
-    <section>
-      <header>
-        <h1>{categoriesById[categoryId].name}</h1>
-      </header>
-      <ul>
-        {products.map(product => (
-          <li key={product.id}>
-            <Link to={`/products/${product.id}`}>{product.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-};
+```javascript
+const myResource = createSingleEntryResource(authToken =>
+  fetch(`/api/about_me?auth_token=${authToken}`)
+);
 ```
 
-This hook is very powerful. Let's walk through what happens when it is used:
+### `createTimedSingleEntryResource`
 
-1. If there is no data for this resource OR no entry in the cache for the arguments (See [invalidateAfter](https://github.com/chadwatson/react-remote-resource/blob/master/README.md#createremoteresource)) OR the cache is stale (See [invalidateAfter](https://github.com/chadwatson/react-remote-resource/blob/master/README.md#createremoteresource)), then the `load` function of the `categoriesResource` and `productsResource` will be invoked and promises thrown.
-2. If either of the promises reject, the closest `RemoteResourceBoundary` will handle the error. If both promises resolve, the `categoriesById` and `products` data will be available to use (as the first item in the tuple).
-3. You can set the state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
+An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
 
-### `useResourceActions`
+```javascript
+const myResource = createTimedSingleEntryResource(10000, authToken =>
+  fetch(`/api/about_me?auth_token=${authToken}`)
+);
+```
 
-A React hook that takes a resource and an optional array of arguments and returns an object literal with the following methods:
+### `createKeyedResource`
 
-- `set`: A function that takes either the new state to set for this entry or a function that takes the current state of the entry and returns what should be set as the new state for the entry.
+Creates a resource that organizes its entries into an object literal. It takes a key setter function and a loader function that fetches your data. The key setter function derives the entry key from the same arguments that are supplied to the loader function. Once an entry is fetched it will not be refetched.
 
-- `refresh`: A function that allows you to bypass the check against the `updatedAt` timestamp and immediately refetch the data. _Note: the promise will **not** be thrown for this action._
+```javascript
+const myResource = createKeyedResource(
+  // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
+  (authToken, userId) => userId,
+  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
+);
+```
 
-- `save`: The `save` function that was defined with `createRemoteResource`. _Note: this will be `undefined` if you did not define a `save` function with `createRemoteResource`._
+### `createTimedKeyedResource`
 
-- `delete`: The `delete` function that was defined with `createRemoteResource`. _Note: this will be `undefined` if you did not define a `delete` function with `createRemoteResource`._
+An opinionated version of `createKeyedResource` that has the same timeout functionality as `createTimedSingleEntryResource` except that each entry in the resource state can timeout independently.
 
-Note: the array of arguments that are provided as the second argument will be spread as the initial arguments to the `save` and `delete` actions. For example, for the actions below, both `save` and `delete` inside of actions would receive `categoryId` as the first parameter when invoked.
-
-```jsx
-import { useResourceState, useResourceActions } from "react-remote-resource";
-
-const ProductCategory = ({ categoryId }) => {
-  const [categoriesById] = useResourceState(categoriesState);
-  const [products] = useResourceState(productsResource, [categoryId]);
-  const actions = useResourceActions(productsResource, [categoryId]);
-
-  return (
-    <section>
-      <header>
-        <h1>{categoriesById[categoryId].name}</h1>
-        <button onClick={actions.refresh}>Refresh Products</button>
-      </header>
-      <ul>
-        {products.map(product => (
-          <li key={product.id}>
-            <Link to={`/products/${product.id}`}>{product.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-};
+```javascript
+const myResource = createTimedKeyedResource(
+  10000,
+  (authToken, userId) => userId,
+  (authToken, userId) => fetch(`/api/about_me?auth_token=${authToken}`)
+);
 ```
 
 ### `RemoteResourceBoundary`
 
-Uses `Suspense` under the hood to catch any thrown promises and render the `fallback` while they are pending. Will also catch any errors that occur in the promise from a resource's `load` function and `renderError` and call `onLoadError` if provided.
+Uses `Suspense` under the hood to catch any thrown promises and render the `fallback` while they are pending. Will also catch any errors that occur in the promise from a resource's loader and `renderError` and call `onLoadError` if provided.
 
 ```jsx
 const UserProfile = ({ userId }) => (
@@ -224,9 +189,7 @@ const UserProfile = ({ userId }) => (
     /* Optional: A React node that will show while any thrown promises are pending. `null` by default. */
     fallback={<p>Loading...</p>}
     /* Optional: A callback that is invoked when any thrown promise rejects */
-    onLoadError={error => {
-      logError(error);
-    }}
+    onLoadError={logError}
     /* Required: A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again */
     renderError={(error, clearError) => (
       <div>
@@ -241,27 +204,133 @@ const UserProfile = ({ userId }) => (
 );
 ```
 
+### `useEntry`
+
+A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
+
+Under the hood `react-remote-resource` implements a redux store. Every resource get its own state in the store.
+
+```jsx
+import {
+  createRemoteResouce,
+  useEntry,
+  useAutoSave
+} from "react-remote-resource";
+import { savePost, postsResource } from "../resources/posts";
+
+const PostForm = ({ postId }) => {
+  const [post, setPost] = useEntry(postsResource, [postId]);
+
+  useAutoSave(post, savePost);
+
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        savePost(post);
+      }}
+    >
+      <label>
+        Title
+        <input
+          type="text"
+          value={post.title}
+          onChange={({ target }) => {
+            setPost({ ...post, title: target.value });
+          }}
+        />
+      </label>
+      <label>
+        Content
+        <textarea
+          value={post.title}
+          onChange={({ target }) => {
+            setPost({ ...post, content: target.value });
+          }}
+        />
+      </label>
+      <button>Save</button>
+    </form>
+  );
+};
+```
+
+This hook is very powerful. Let's walk through what happens when it is used:
+
+1. The getter function (the first argument given to `createResource`) is used to get the entry out of the resource state.
+2. The predicate (the third argument given to `createResource`) is used to test whether or not the entry is valid. If not the loader (the fourth argument) will be invoked and the promise thrown.
+3. If the promise rejects, the closest `RemoteResourceBoundary` will handle the error. If the promise resolves, the setter function (the second argument give to `createResource`) is used to set the resolved data in the resource state.
+4. You can set the entry state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
+
+### `useAutoSave`
+
+A React hook that takes a value, a save function, and an optional delay in milliseconds (defaults to 1000). When the value changes the new value will be saved if the value remains the same for the delay time.
+
+This is useful for optimistic UIs where the state of the resource is the source of truth and we are confident that the save will succeed.
+
+```jsx
+import {
+  createRemoteResouce,
+  useEntry,
+  useAutoSave
+} from "react-remote-resource";
+import { savePost, usePost } from "../resources/posts";
+
+const PostForm = ({ postId }) => {
+  const [post, setPost] = usePost(postId);
+
+  useAutoSave(post, savePost);
+
+  return (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        savePost(post);
+      }}
+    >
+      <label>
+        Title
+        <input
+          type="text"
+          value={post.title}
+          onChange={({ target }) => {
+            setPost({ ...post, title: target.value });
+          }}
+        />
+      </label>
+      <label>
+        Content
+        <textarea
+          value={post.title}
+          onChange={({ target }) => {
+            setPost({ ...post, content: target.value });
+          }}
+        />
+      </label>
+      <button>Save</button>
+    </form>
+  );
+};
+```
+
 ### `useSuspense`
 
 A hook that takes a promise returning function. It will throw the returned promise as long as it is pending.
 
 ```jsx
-import { useSuspense, useResourceActions } from "react-remote-resource";
-import userResource from "../resources/user";
+import { useSuspense } from "react-remote-resource";
+import { saveUser } from "../resources/user";
 
 const SaveButton = ({ onClick }) => (
   <button onClick={useSuspense(onClick)}>Save</button>
 );
 
-const UserForm = () => {
-  const actions = useResourceActions(userResource);
-  return (
-    <div>
-      ...Your form fields
-      <Suspense fallback={<p>Saving...</p>}>
-        <SaveButton onClick={actions.save} />
-      </Suspense>
-    </div>
-  );
-};
+const UserForm = () => (
+  <div>
+    ...Your form fields
+    <Suspense fallback={<p>Saving...</p>}>
+      <SaveButton onClick={saveUser} />
+    </Suspense>
+  </div>
+);
 ```

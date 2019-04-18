@@ -5,59 +5,15 @@ Object.defineProperty(exports, '__esModule', { value: true });
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
-var uuid = _interopDefault(require('uuid/v1'));
-var redux = require('redux');
 var ramda = require('ramda');
-var immutable = require('immutable');
-var Maybe = _interopDefault(require('data.maybe'));
 var React = require('react');
 var React__default = _interopDefault(React);
+var uuid = _interopDefault(require('uuid/v1'));
+var redux = require('redux');
+var immutable = require('immutable');
+var Maybe = _interopDefault(require('data.maybe'));
 
-var RECEIVE_ENTRY_DATA = "RECEIVE_ENTRY_DATA";
-var Entry = immutable.Record({
-  id: "",
-  data: Maybe.Nothing(),
-  updatedAt: Maybe.Nothing()
-}, "RemoteResourceEntry");
-
-var entryReducer = function entryReducer(state, action) {
-  if (state === void 0) {
-    state = Entry();
-  }
-
-  switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.merge({
-        id: action.entryId,
-        data: Maybe.fromNullable(action.data),
-        updatedAt: ramda.isNil(action.data) ? Maybe.Nothing() : Maybe.of(action.now)
-      });
-
-    default:
-      return state;
-  }
-};
-
-var initialResourceState = immutable.Map({
-  entriesById: immutable.Map()
-});
-
-var resourceReducer = function resourceReducer(state, action) {
-  if (state === void 0) {
-    state = initialResourceState;
-  }
-
-  switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.updateIn(["entriesById", action.entryId], function (entryState) {
-        return entryReducer(entryState, action);
-      });
-
-    default:
-      return state;
-  }
-};
-
+var RECEIVE_STATE = "RECEIVE_STATE";
 var initialRootState = immutable.Map({
   resourcesById: immutable.Map()
 });
@@ -68,10 +24,8 @@ var rootReducer = function rootReducer(state, action) {
   }
 
   switch (action.type) {
-    case RECEIVE_ENTRY_DATA:
-      return state.updateIn(["resourcesById", action.resourceId], function (resourceState) {
-        return resourceReducer(resourceState, action);
-      });
+    case RECEIVE_STATE:
+      return state.setIn(["resourcesById", action.resourceId], action.state);
 
     default:
       return state;
@@ -85,81 +39,165 @@ var selectResource = function selectResource(state, _ref) {
   }
 
   var resourceId = _ref.resourceId;
-  return Maybe.fromNullable(state.getIn(["resourcesById", resourceId]));
-};
-var selectEntry = function selectEntry(state, _ref2) {
-  if (state === void 0) {
-    state = initialRootState;
-  }
-
-  var resourceId = _ref2.resourceId,
-      entryId = _ref2.entryId;
-  return selectResource(state, {
-    resourceId: resourceId
-  }).chain(function (resource) {
-    return Maybe.fromNullable(resource.getIn(["entriesById", entryId]));
-  });
-};
-
-var createRemoteResource = function createRemoteResource(_ref) {
-  var load = _ref.load,
-      save = _ref.save,
-      destroy = _ref.delete,
-      _ref$initialValue = _ref.initialValue,
-      initialValue = _ref$initialValue === void 0 ? null : _ref$initialValue,
-      _ref$invalidateAfter = _ref.invalidateAfter,
-      invalidateAfter = _ref$invalidateAfter === void 0 ? 300000 : _ref$invalidateAfter,
-      _ref$createEntryId = _ref.createEntryId,
-      createEntryId = _ref$createEntryId === void 0 ? function () {
-    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-      args[_key] = arguments[_key];
-    }
-
-    return args.join("-") || "INDEX";
-  } : _ref$createEntryId;
-  var resourceId = uuid();
-  var loadingPromisesByEntryId = new Map();
-  return {
-    id: resourceId,
-    loadingPromisesByEntryId: loadingPromisesByEntryId,
-    createEntryId: createEntryId,
-    initialValue: initialValue,
-    invalidateAfter: invalidateAfter,
-    load: load,
-    save: save,
-    delete: destroy,
-    getEntry: function getEntry(entryId) {
-      return selectEntry(store.getState(), {
-        resourceId: resourceId,
-        entryId: entryId
-      });
-    },
-    onChange: function onChange(_onChange) {
-      var currentState = selectResource(store.getState(), {
-        resourceId: resourceId
-      });
-      return store.subscribe(function () {
-        var nextResourceState = selectResource(store.getState(), {
-          resourceId: resourceId
-        });
-
-        if (nextResourceState !== currentState) {
-          currentState = nextResourceState;
-
-          _onChange();
-        }
-      });
-    },
-    dispatch: function dispatch(action) {
-      return store.dispatch(_extends({}, action, {
-        resourceId: resourceId
-      }));
-    }
-  };
+  return state.getIn(["resourcesById", resourceId]);
 };
 
 var Context = React.createContext({
   registerError: function registerError() {}
+});
+
+var createResource = ramda.curry(function (entryGetter, entrySetter, entryPredicate, loader) {
+  var resourceId = uuid();
+
+  var getResourceState = function getResourceState() {
+    return selectResource(store.getState(), {
+      resourceId: resourceId
+    });
+  };
+
+  var setResourceState = function setResourceState(nextState) {
+    store.dispatch({
+      type: RECEIVE_STATE,
+      resourceId: resourceId,
+      state: typeof nextState === "function" ? nextState(getResourceState()) : nextState
+    });
+  };
+
+  var setEntryState = ramda.curry(function (args, state) {
+    return setResourceState(entrySetter(getResourceState(), args, state));
+  });
+
+  var subscribe = function subscribe(onChange) {
+    var currentState = getResourceState();
+    return store.subscribe(function () {
+      var nextResourceState = getResourceState();
+
+      if (nextResourceState !== currentState) {
+        currentState = nextResourceState;
+        onChange();
+      }
+    });
+  };
+
+  var pendingLoaders = new Map();
+  return {
+    id: resourceId,
+    getState: getResourceState,
+    setState: setResourceState,
+    refresh: function refresh() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return loader.apply(void 0, args).then(setEntryState(args));
+    },
+    useEntry: function useEntry() {
+      var resourceState = getResourceState();
+
+      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2];
+      }
+
+      var _useState = React.useState(entryGetter(resourceState, args)),
+          state = _useState[0],
+          setState = _useState[1];
+
+      var _useContext = React.useContext(Context),
+          registerError = _useContext.registerError;
+
+      var entryId = args.length ? args.join("-") : "INDEX";
+      React.useEffect(function () {
+        return (// Important! The return value is used to unsubscribe from the store
+          subscribe(function () {
+            var nextState = getResourceState();
+
+            if (nextState !== state) {
+              setState(nextState);
+            }
+          })
+        );
+      }, [state]);
+
+      if (pendingLoaders.get(entryId)) {
+        throw pendingLoaders.get(entryId);
+      }
+
+      if (!entryPredicate(entryGetter(resourceState, args), args)) {
+        pendingLoaders.set(entryId, loader.apply(void 0, args).then(setEntryState(args)).catch(registerError).finally(function () {
+          pendingLoaders.delete(entryId);
+        }));
+        throw pendingLoaders.get(entryId);
+      }
+
+      return [state, React.useCallback(setEntryState(args), args)];
+    },
+    subscribe: subscribe
+  };
+});
+
+var createKeyedResource = ramda.curry(function (createKey, loader) {
+  return createResource(function (resourceState, args) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    return resourceState[createKey.apply(void 0, args)];
+  }, function (resourceState, args, data) {
+    var _extends2;
+
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
+  }, function (entryState) {
+    return typeof entryState !== "undefined";
+  }, loader);
+});
+
+var createSingleEntryResource = function createSingleEntryResource(loader) {
+  return createResource(function (resourceState) {
+    return resourceState;
+  }, function (resourceState, args, data) {
+    return data;
+  }, function (entryState) {
+    return typeof entryState !== "undefined";
+  }, loader);
+};
+
+var createTimedKeyedResource = ramda.curry(function (ms, createKey, loader) {
+  var updatedAt = new Map();
+  return createResource(function (resourceState, args) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    return resourceState[createKey.apply(void 0, args)];
+  }, function (resourceState, args, data) {
+    var _extends2;
+
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    var key = createKey.apply(void 0, args);
+    updatedAt.set(key, Date.now());
+    return _extends({}, resourceState, (_extends2 = {}, _extends2[key] = data, _extends2));
+  }, function (entryState, args) {
+    return typeof entryState !== "undefined" && updatedAt.get(createKey.apply(void 0, args)) + ms > Date.now();
+  }, loader);
+});
+
+var createTimedSingleEntryResource = ramda.curry(function (ms, loader) {
+  var updatedAt = 0;
+  return createResource(function (resourceState) {
+    return resourceState;
+  }, function (resourceState, args, data) {
+    updatedAt = Date.now();
+    return data;
+  }, function (entryState) {
+    return typeof entryState !== "undefined" && updatedAt + ms > Date.now();
+  }, loader);
 });
 
 var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
@@ -197,103 +235,34 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   }, children)));
 };
 
-var useResourceActions = function useResourceActions(resource, args) {
-  if (args === void 0) {
-    args = [];
+var useAutoSave = function useAutoSave(value, save, delay) {
+  if (delay === void 0) {
+    delay = 1000;
   }
 
-  var entryId = resource.createEntryId.apply(resource, args);
-
-  var _useContext = React.useContext(Context),
-      registerError = _useContext.registerError;
-
-  var data = resource.getEntry(entryId).chain(function (entry) {
-    return entry.data;
-  }).getOrElse(resource.initialValue);
-  var actions = {
-    set: React.useCallback(function (nextData) {
-      resource.dispatch({
-        type: RECEIVE_ENTRY_DATA,
-        entryId: entryId,
-        data: typeof nextData === "function" ? nextData(data) : nextData,
-        now: Date.now()
-      });
-    }, [data]),
-    refresh: React.useCallback(function () {
-      return resource.loadingPromisesByEntryId.get(entryId) || // We need to store the promise so that if the component gets re-mounted
-      // while the promise is pending we have the ability to throw it.
-      resource.loadingPromisesByEntryId.set(entryId, resource.load.apply(resource, args).then(function (data) {
-        resource.dispatch({
-          type: RECEIVE_ENTRY_DATA,
-          entryId: entryId,
-          data: data,
-          now: Date.now()
-        });
-      }).catch(registerError).finally(function () {
-        resource.loadingPromisesByEntryId.delete(entryId);
-      })).get(entryId);
-    }, args)
-  };
-
-  if (resource.save) {
-    actions.save = resource.save;
-  }
-
-  if (resource.delete) {
-    actions.delete = resource.delete;
-  }
-
-  return actions;
-};
-
-var useFirstRender = function useFirstRender() {
-  var renderCount = React.useRef(0);
-  renderCount.current = renderCount.current + 1;
-  return renderCount.current === 1;
-};
-
-var useResourceState = function useResourceState(resource, args) {
-  if (args === void 0) {
-    args = [];
-  }
-
-  var entryId = resource.createEntryId.apply(resource, args);
-
-  var _useState = React.useState(resource.getEntry(entryId)),
-      maybeEntry = _useState[0],
-      setEntry = _useState[1];
-
-  var data = maybeEntry.chain(function (entry) {
-    return entry.data;
-  }).getOrElse(resource.initialValue);
-  var cacheInvalid = maybeEntry.map(function (entry) {
-    return entry.updatedAt + resource.invalidateAfter < Date.now();
-  }).getOrElse(data === resource.initialValue);
-  var loadPromise = resource.loadingPromisesByEntryId.get(entryId);
-  var actions = useResourceActions(resource, args);
   React.useEffect(function () {
-    return (// Important! The return value is used to unsubscribe from the store when necessary.
-      resource.onChange(function () {
-        setEntry(resource.getEntry(entryId));
-      })
-    );
-  }, [entryId]);
-  var isFirstRender = useFirstRender();
+    var timeout = setTimeout(function () {
+      return save(value);
+    }, delay);
+    return function () {
+      clearTimeout(timeout);
+    };
+  }, [value]);
+  React.useEffect(function () {
+    return function () {
+      if (value) {
+        save(value);
+      }
+    };
+  }, []);
+};
 
-  if (isFirstRender && cacheInvalid && !loadPromise) {
-    throw actions.refresh();
-  } else if (loadPromise) {
-    throw loadPromise;
+var useEntry = function useEntry(resource, args) {
+  if (args === void 0) {
+    args = [];
   }
 
-  return [data, React.useCallback(function (nextData) {
-    resource.dispatch({
-      type: RECEIVE_ENTRY_DATA,
-      entryId: entryId,
-      data: typeof nextData === "function" ? nextData(data) : nextData,
-      now: Date.now()
-    });
-  }, [data])];
+  return resource.useEntry.apply(resource, args);
 };
 
 var useSuspense = function useSuspense(fn) {
@@ -325,8 +294,12 @@ var useSuspense = function useSuspense(fn) {
   };
 };
 
-exports.createRemoteResource = createRemoteResource;
+exports.createKeyedResource = createKeyedResource;
+exports.createResource = createResource;
+exports.createSingleEntryResource = createSingleEntryResource;
+exports.createTimedKeyedResource = createTimedKeyedResource;
+exports.createTimedSingleEntryResource = createTimedSingleEntryResource;
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
-exports.useResourceState = useResourceState;
-exports.useResourceActions = useResourceActions;
+exports.useAutoSave = useAutoSave;
+exports.useEntry = useEntry;
 exports.useSuspense = useSuspense;

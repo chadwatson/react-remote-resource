@@ -1,49 +1,21 @@
 {
   "dist/index.js": {
-    "bundled": 8212,
-    "minified": 4272,
-    "gzipped": 1508,
+    "bundled": 7251,
+    "minified": 3385,
+    "gzipped": 1387,
     "treeshaked": {
       "rollup": {
-        "code": 885,
-        "import_statements": 233
+        "code": 1864,
+        "import_statements": 290
       },
       "webpack": {
-        "code": 2124
+        "code": 3144
       }
     }
   },
   "dist/index.cjs.js": {
-    "bundled": 9553,
-    "minified": 5042,
-    "gzipped": 1618
-  },
-  "dist/esm.js": {
-    "bundled": 9741,
-    "minified": 4963,
-    "gzipped": 1721,
-    "treeshaked": {
-      "rollup": {
-        "code": 1110,
-        "import_statements": 217
-      },
-      "webpack": {
-        "code": 2355
-      }
-    }
-  },
-  "dist/esm.min.js": {
-    "bundled": 9741,
-    "minified": 4963,
-    "gzipped": 1721,
-    "treeshaked": {
-      "rollup": {
-        "code": 1110,
-        "import_statements": 217
-      },
-      "webpack": {
-        "code": 2355
-      }
-    }
+    "bundled": 8817,
+    "minified": 4425,
+    "gzipped": 1523
   }
 }
