@@ -137,7 +137,7 @@ type Resource<A> = {
 
 ### `createSingleEntryResource`
 
-An opinionated version of `createResource` that assumes there is only one entry in the resource state. The getter function simply returns the last data that was fetched. The setter function simply sets the resource state to the data that was fetched. And the predicate function simply checks if the resource state is not `undefined`. Basically the loader function will only be called once if it successfully resolves.
+Creates a resource that only has one entry. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched.
 
 ```javascript
 const myResource = createSingleEntryResource(authToken =>
@@ -157,7 +157,7 @@ const myResource = createTimedSingleEntryResource(10000, authToken =>
 
 ### `createKeyedResource`
 
-An opinionated version of `createResource` that stores retrieved data in an object literal, allowing you to create a key for each entry. The getter function returns the data that is associated with key that your key creating function returns. The setter function sets the resource state to the data that was fetched. And the predicate function simply checks if the resource state is not `undefined`.
+Creates a resource that organizes its entries into an object literal. It takes a key setter function and a loader function that fetches your data. The key setter function derives the entry key from the same arguments that are supplied to the loader function. Once an entry is fetched it will not be refetched.
 
 ```javascript
 const myResource = createKeyedResource(
