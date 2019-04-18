@@ -4,7 +4,7 @@ const createSingleEntryResource = loader =>
   createResource(
     resourceState => resourceState,
     (resourceState, args, data) => data,
-    entryState => !!entryState,
+    entryState => typeof entryState !== "undefined",
     loader
   );
 

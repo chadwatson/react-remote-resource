@@ -151,7 +151,7 @@ var createKeyedResource = ramda.curry(function (createKey, loader) {
 
     return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
   }, function (entryState) {
-    return !!entryState;
+    return typeof entryState !== "undefined";
   }, loader);
 });
 
@@ -161,7 +161,7 @@ var createSingleEntryResource = function createSingleEntryResource(loader) {
   }, function (resourceState, args, data) {
     return data;
   }, function (entryState) {
-    return !!entryState;
+    return typeof entryState !== "undefined";
   }, loader);
 };
 
@@ -184,7 +184,7 @@ var createTimedKeyedResource = ramda.curry(function (ms, createKey, loader) {
     updatedAt.set(key, Date.now());
     return _extends({}, resourceState, (_extends2 = {}, _extends2[key] = data, _extends2));
   }, function (entryState, args) {
-    return !!entryState && updatedAt.get(createKey.apply(void 0, args)) + ms < Date.now();
+    return typeof entryState !== "undefined" && updatedAt.get(createKey.apply(void 0, args)) + ms < Date.now();
   }, loader);
 });
 
@@ -196,7 +196,7 @@ var createTimedSingleEntryResource = ramda.curry(function (ms, loader) {
     updatedAt = Date.now();
     return data;
   }, function (entryState) {
-    return !!entryState && updatedAt + ms < Date.now();
+    return typeof entryState !== "undefined" && updatedAt + ms < Date.now();
   }, loader);
 });
 

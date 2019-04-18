@@ -8,7 +8,7 @@ const createKeyedResource = curry((createKey, loader) =>
       ...resourceState,
       [createKey(...args)]: data
     }),
-    entryState => !!entryState,
+    entryState => typeof entryState !== "undefined",
     loader
   )
 );
