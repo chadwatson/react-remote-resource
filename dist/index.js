@@ -157,7 +157,7 @@ const createTimedKeyedResource = curry((ms, createKey, loader) => {
     return _extends({}, resourceState, {
       [key]: data
     });
-  }, (entryState, args) => typeof entryState !== "undefined" && updatedAt.get(createKey(...args)) + ms < Date.now(), loader);
+  }, (entryState, args) => typeof entryState !== "undefined" && updatedAt.get(createKey(...args)) + ms > Date.now(), loader);
 });
 
 const createTimedSingleEntryResource = curry((ms, loader) => {
@@ -165,7 +165,7 @@ const createTimedSingleEntryResource = curry((ms, loader) => {
   return createResource(resourceState => resourceState, (resourceState, args, data) => {
     updatedAt = Date.now();
     return data;
-  }, entryState => typeof entryState !== "undefined" && updatedAt + ms < Date.now(), loader);
+  }, entryState => typeof entryState !== "undefined" && updatedAt + ms > Date.now(), loader);
 });
 
 const RemoteResourceBoundary = (_ref) => {

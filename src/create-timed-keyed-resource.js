@@ -16,7 +16,7 @@ const createTimedKeyedResource = curry((ms, createKey, loader) => {
     },
     (entryState, args) =>
       typeof entryState !== "undefined" &&
-      updatedAt.get(createKey(...args)) + ms < Date.now(),
+      updatedAt.get(createKey(...args)) + ms > Date.now(),
     loader
   );
 });
