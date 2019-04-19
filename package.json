@@ -1,8 +1,11 @@
 {
   "name": "react-remote-resource",
-  "version": "1.0.2",
+  "version": "2.0.1",
   "description": "Intuitive remote data management in React",
-  "main": "index.js",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.cjs.js",
   "module": "dist/index.js",
   "repository": "https://github.com/chadwatson/react-remote-resource",
   "author": "Chad Watson <chadwatsn@gmail.com>",
