@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback, useContext } from "react";
 import uuid from "uuid/v1";
-import { curry } from "ramda";
+import { curry, curryN } from "ramda";
 import store, { selectResource, RECEIVE_STATE } from "./store";
 import Context from "./Context";
 
-const createResource = curry(
-  (entryGetter, entrySetter, entryPredicate, loader) => {
+const createResource = curryN(
+  4,
+  (
+    entryGetter,
+    entrySetter,
+    entryPredicate,
+    loader,
+    getInitialState = value => Promise.reject(value)
+  ) => {
     const resourceId = uuid();
 
     const getResourceState = () =>
@@ -69,7 +76,8 @@ const createResource = curry(
         if (!entryPredicate(entryGetter(resourceState, args), args)) {
           pendingLoaders.set(
             entryId,
-            loader(...args)
+            getInitialState()
+              .catch(() => loader(...args))
               .then(setEntryState(args))
               .catch(registerError)
               .finally(() => {
