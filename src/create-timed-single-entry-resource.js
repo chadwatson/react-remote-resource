@@ -10,8 +10,7 @@ const createTimedSingleEntryResource = curry((ms, loader) => {
       updatedAt = Date.now();
       return data;
     },
-    entryState =>
-      typeof entryState !== "undefined" && updatedAt + ms > Date.now(),
+    entryState => entryState !== undefined && updatedAt + ms > Date.now(),
     loader
   );
 });
