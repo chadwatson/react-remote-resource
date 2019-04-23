@@ -10,23 +10,15 @@ Intuitive remote data management in React
 
 ### How does it work?
 
-`react-remote-resource` creates `resources` that act as the single point of truth for a specific remote resource. `resources` are composible, allowing flexibility.
+`react-remote-resource` creates composible `resources` that act as the single point of truth for a remote resource.
 
 #### Lifecycle
 
-- When a `resource` is used, it will check against an internal cache for a valid data entry.
-
-  - If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown.
-
-- The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise from the `load` function, and render the `fallback` until all outstanding Promises resolve.
-
-  - If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`.
+When a `resource` is used, it will check against an internal cache for a valid data entry. If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise from the `load` function, and render the `fallback` until all outstanding Promises resolve. If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`.
 
 This provides a straightforward and consistent way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
 
 &nbsp;
-
----
 
 &nbsp;
 
@@ -122,6 +114,27 @@ const UserProfile = ({ userId }) => (
 
 ## Resource Creators
 
+Each resource creator will return a `resource` in the following shape:
+
+```ts
+type Resource<A> = {
+  // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state. Note: It is up to you to handle a rejected Promise. A `RemoteResourceBoundary` will not catch it.
+  refresh: (...args: Array<any>) => Promise<A>,
+
+  // Returns the current state of the resource
+  getState: () => A,
+
+  // A function that takes the next state or a function that receives the current state and returns the next state.
+  setState: (A | A => A) => void,
+
+  // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
+  subscribe: (() => void) => void,
+
+  // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
+  useEntry: <A>(...args: Array<any>) => [A, (A | A => A) => void]
+};
+```
+
 ### `createResource`
 
 Creates a new resource.
@@ -130,35 +143,19 @@ Creates a new resource.
 const productsResource = createResource(
   // A function that gets an entry from the state.
   (currentState = {}, [id]) => currentState[id],
+
   // A function that sets an entry in the state.
   (currentState = {}, [id], product) => ({
     ...currentState,
     [id]: product
   }),
+
   // A predicate that tests whether the entry is still valid.
   (product, args) => !!product,
+
   // The loader function that fetches data. Should return a promise.
   id => fetch(`/api/products/${id}`).then(response => response.json())
 );
-```
-
-The return value from `createResource` has the following shape:
-
-```ts
-type Resource<A> = {
-  // The generated UUID for the resource
-  id: string,
-  // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state. Note: It is up to you to handle a rejected Promise. A `RemoteResourceBoundary` will not catch it.
-  refresh: (...args: Array<any>) => Promise<A>,
-  // Returns the current state of the resource
-  getState: () => A,
-  // A function that takes the next state or a function that receives the current state and returns the next state.
-  setState: (A | A => A) => void,
-  // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
-  subscribe: (() => void) => void,
-  // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
-  useEntry: <A>(...args: Array<any>) => [A, (A | A => A) => void]
-};
 ```
 
 &nbsp;
@@ -262,11 +259,11 @@ Uses `Suspense` under the hood to catch any thrown promises and render the `fall
 ```jsx
 const UserProfile = ({ userId }) => (
   <RemoteResourceBoundary
-    /* Optional: A React node that will show while any thrown promises are pending. `null` by default. */
+    /* A React node that will show while any thrown promises are pending. */
     fallback={<p>Loading...</p>}
     /* Optional: A callback that is invoked when any thrown promise rejects */
     onLoadError={logError}
-    /* Required: A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again */
+    /* A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again */
     renderError={(error, clearError) => (
       <div>
         <p>{error}</p>
