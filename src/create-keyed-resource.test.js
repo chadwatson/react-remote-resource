@@ -38,7 +38,7 @@ describe("createKeyedResource", () => {
     await waitForElement(() => getByText("resolved"));
   });
 
-  it(" does not run the load function if entry is defined", async () => {
+  it("does not run the load function if entry is defined", async () => {
     const resource = createKeyedResource(identity, () =>
       Promise.resolve("resolved")
     );
