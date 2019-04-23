@@ -6,8 +6,8 @@ import Context from "./Context";
 const RemoteResourceBoundary = ({
   children,
   onLoadError = () => {},
-  fallback = null,
-  renderError = error => null
+  fallback,
+  renderError
 }) => {
   const [error, setError] = useState(Maybe.Nothing());
   const providerValue = useMemo(
@@ -36,7 +36,7 @@ RemoteResourceBoundary.propTypes = {
   children: PropTypes.node.isRequired,
   renderError: PropTypes.func.isRequired,
   onLoadError: PropTypes.func,
-  fallback: PropTypes.node
+  fallback: PropTypes.node.isRequired
 };
 
 export default RemoteResourceBoundary;
