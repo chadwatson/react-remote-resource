@@ -3,6 +3,7 @@ import { render, waitForElement } from "react-testing-library";
 import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createSingleEntryResource from "./create-single-entry-resource";
+import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 
 // ---------------------------
 // Mocks
@@ -20,6 +21,12 @@ const MockResourceConsumer = ({ resource }) => {
 
 describe("createSingleEntryResource", () => {
   it("creates a resource", async () => {
+    assertResourceShape(
+      createSingleEntryResource(() => Promise.resolve("resolved"))
+    );
+  });
+
+  it("correctly shapes the resource to a single entry", async () => {
     const resource = createSingleEntryResource(() =>
       Promise.resolve("resolved")
     );
@@ -35,9 +42,10 @@ describe("createSingleEntryResource", () => {
 
     await waitForElement(() => getByText("Loading..."));
     await waitForElement(() => getByText("resolved"));
+    expect(resource.getState()).toBe("resolved");
   });
 
-  it("does not run the load function if entry is defined", async () => {
+  it("does not run the load function if the entry is already defined", async () => {
     const resource = createSingleEntryResource(() =>
       Promise.resolve("resolved")
     );

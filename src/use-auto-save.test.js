@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { render, fireEvent, waitForElement } from "react-testing-library";
+import React from "react";
+import { render, fireEvent } from "react-testing-library";
 import useAutoSave from "./use-auto-save";
 
 // ---------------------------
@@ -10,19 +10,6 @@ const MockSaveComponent = ({ value, save, delay }) => {
   useAutoSave(value, save, delay);
 
   return <div>{value}</div>;
-};
-
-const MockCleanup = ({ value, save, delay }) => {
-  const [show, setShow] = useState(true);
-
-  return (
-    <>
-      {show ? (
-        <MockSaveComponent value={value} save={save} delay={delay} />
-      ) : null}
-      <button onClick={() => setShow(!show)}>Toggle AutoSave</button>
-    </>
-  );
 };
 
 // ---------------------------
@@ -49,17 +36,11 @@ describe("useAutoSave", () => {
   it("runs save on unmount", async () => {
     const spy = jest.fn();
 
-    const { rerender, getByText } = render(
-      <MockCleanup save={spy} value={1} />
+    const { unmount, rerender } = render(
+      <MockSaveComponent save={spy} value={1} />
     );
-    rerender(<MockCleanup save={spy} value={2} />);
-
-    const value = await waitForElement(() => getByText("2"));
-
-    const button = getByText("Toggle AutoSave");
-    fireEvent.click(button);
-
-    expect(value).not.toBeInTheDocument();
+    rerender(<MockSaveComponent save={spy} value={2} />);
+    unmount();
 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenLastCalledWith(2);
@@ -105,15 +86,12 @@ describe("useAutoSave", () => {
   it("does not run save if initial value does not change (unmount)", async () => {
     const spy = jest.fn();
 
-    const { getByText } = render(
-      <MockCleanup save={spy} value={1} delay={100} />
+    const { unmount } = render(
+      <MockSaveComponent save={spy} value={1} delay={100} />
     );
 
-    const button = getByText("Toggle AutoSave");
-    fireEvent.click(button);
-
-    await delay(50);
-
+    await delay(100);
+    unmount();
     expect(spy).not.toHaveBeenCalled();
   });
 });

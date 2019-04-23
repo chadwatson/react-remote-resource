@@ -5,6 +5,7 @@ import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import persistResource from "./persist-resource";
 import createKeyedResource from "./create-keyed-resource";
+import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 
 // ---------------------------
 // Mocks
@@ -21,6 +22,21 @@ const MockResourceConsumer = ({ resource, index }) => {
 // ---------------------------
 
 describe("persistResource", () => {
+  it("returns a resource", async () => {
+    const getInitialState = jest
+      .fn()
+      .mockImplementation(() => Promise.resolve({ 0: "initial" }));
+    const persist = jest.fn();
+
+    assertResourceShape(
+      persistResource(
+        getInitialState,
+        persist,
+        createKeyedResource(identity, () => Promise.resolve("load"))
+      )
+    );
+  });
+
   it("loads the initial state into the resource", async () => {
     const getInitialState = jest
       .fn()
@@ -100,5 +116,6 @@ describe("persistResource", () => {
 
     await waitForElement(() => getByText("manual"));
     expect(persist).not.toHaveBeenCalled();
+    expect(getInitialState).not.toHaveBeenCalled();
   });
 });

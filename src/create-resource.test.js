@@ -1,5 +1,6 @@
 import createResource from "./create-resource";
 import { createMockResource } from "./__mocks__/create-mock-resource";
+import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 
 const getter = jest.fn();
 const setter = jest.fn();
@@ -34,13 +35,7 @@ describe("createResource", () => {
   });
 
   it("is returns a resource when passed a getter, setter, entryPredicate, and loader", () => {
-    const resource = createResource(getter, setter, entryPredicate, loader);
-
-    expect(typeof resource.getState).toBe("function");
-    expect(typeof resource.setState).toBe("function");
-    expect(typeof resource.refresh).toBe("function");
-    expect(typeof resource.useEntry).toBe("function");
-    expect(typeof resource.subscribe).toBe("function");
+    assertResourceShape(createResource(getter, setter, entryPredicate, loader));
   });
 
   // ---------------------------
