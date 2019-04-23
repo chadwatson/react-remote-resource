@@ -2,15 +2,37 @@
 
 Intuitive remote data management in React
 
+&nbsp;
+
 ## Overview
 
-react-remote-resource simplifies the integration of remote resources, usually api endpoints, into React applications, reducing boilerplate and data over-fetching.
+`react-remote-resource` simplifies using remote resources, usually api endpoints, in React applications.
 
-## How does it work?
+### How does it work?
 
-Whenever a resource is used it will check the internal cache for a valid data entry. If a valid entry is found, the resource will return the data from the cache and the data is ready to use. If no valid entry is found, the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise and render the `fallback` until all outstanding Promises resolve. If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`. This provides an intuitive way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
+`react-remote-resource` creates `resources` that act as the single point of truth for a specific remote resource. `resources` are composible, allowing flexibility.
+
+#### Lifecycle
+
+- When a `resource` is used, it will check against an internal cache for a valid data entry.
+
+  - If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown.
+
+- The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise from the `load` function, and render the `fallback` until all outstanding Promises resolve.
+
+  - If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`.
+
+This provides a straightforward and consistent way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
+
+&nbsp;
+
+---
+
+&nbsp;
 
 ## Getting Started
+
+### Installation
 
 ```
 npm install react-remote-resource --save
@@ -92,7 +114,13 @@ const UserProfile = ({ userId }) => (
 );
 ```
 
-## API
+&nbsp;
+
+---
+
+&nbsp;
+
+## Resource Creators
 
 ### `createResource`
 
@@ -114,8 +142,6 @@ const productsResource = createResource(
 );
 ```
 
-#### Resource
-
 The return value from `createResource` has the following shape:
 
 ```ts
@@ -135,6 +161,8 @@ type Resource<A> = {
 };
 ```
 
+&nbsp;
+
 ### `createSingleEntryResource`
 
 Creates a resource that only has one entry. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched.
@@ -145,6 +173,8 @@ const myResource = createSingleEntryResource(authToken =>
 );
 ```
 
+&nbsp;
+
 ### `createTimedSingleEntryResource`
 
 An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
@@ -154,6 +184,8 @@ const myResource = createTimedSingleEntryResource(10000, authToken =>
   fetch(`/api/about_me?auth_token=${authToken}`)
 );
 ```
+
+&nbsp;
 
 ### `createKeyedResource`
 
@@ -167,6 +199,8 @@ const myResource = createKeyedResource(
 );
 ```
 
+&nbsp;
+
 ### `createTimedKeyedResource`
 
 An opinionated version of `createKeyedResource` that has the same timeout functionality as `createTimedSingleEntryResource` except that each entry in the resource state can timeout independently.
@@ -178,6 +212,48 @@ const myResource = createTimedKeyedResource(
   (authToken, userId) => fetch(`/api/about_me?auth_token=${authToken}`)
 );
 ```
+
+&nbsp;
+
+### `persistResource`
+
+A higher order function that adds persistence to a specific resource.
+
+#### Params
+
+- `getInitialState` -A function that returns a promise with the initial data. If the promise resolves, the data in the promised is used as the initial state of the entire resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
+
+- `saveState` - A function that receives the state whenever the resource state updates.
+
+- `resource` - The resource to persist
+
+```javascript
+const todosResource = persistResource(
+  () => {
+    const result = localStorage.getItem("todos");
+    return result ? Promise.resolve(JSON.stringify(result)) : Promise.reject();
+  },
+  state => {
+    localStorage.setItem("todos", JSON.stringify(state));
+  },
+  createSingleEntryResource(
+    () =>
+      new Promise(resolve => {
+        setTimeout(() => {
+          resolve(todos);
+        }, 1000);
+      })
+  )
+);
+```
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## Components
 
 ### `RemoteResourceBoundary`
 
@@ -203,6 +279,14 @@ const UserProfile = ({ userId }) => (
   </RemoteResourceBoundary>
 );
 ```
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## React Hooks
 
 ### `useEntry`
 
@@ -262,6 +346,8 @@ This hook is very powerful. Let's walk through what happens when it is used:
 3. If the promise rejects, the closest `RemoteResourceBoundary` will handle the error. If the promise resolves, the setter function (the second argument give to `createResource`) is used to set the resolved data in the resource state.
 4. You can set the entry state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
 
+&nbsp;
+
 ### `useAutoSave`
 
 A React hook that takes a value, a save function, and an optional delay in milliseconds (defaults to 1000). When the value changes the new value will be saved if the value remains the same for the delay time.
@@ -312,6 +398,8 @@ const PostForm = ({ postId }) => {
   );
 };
 ```
+
+&nbsp;
 
 ### `useSuspense`
 
