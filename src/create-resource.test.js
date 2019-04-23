@@ -1,73 +1,112 @@
 import createResource from "./create-resource";
+import { createMockResource } from "./__mocks__/create-mock-resource";
 
-import { createResourceInputs as createSpies } from "./__mocks__/create-resource-inputs";
+const getter = jest.fn();
+const setter = jest.fn();
+const entryPredicate = jest.fn();
+const loader = jest.fn();
 
 // ---------------------------
 // Tests
 // ---------------------------
 
 describe("createResource", () => {
+  // ---------------------------
+  // Resource Structure Tests
+  // ---------------------------
+
   it("is a function", () => {
     expect(typeof createResource).toBe("function");
   });
 
   it("is returns a function when passed a getter", () => {
-    const { getter } = createSpies();
     expect(typeof createResource(getter)).toBe("function");
   });
 
   it("is returns a function when passed a getter and setter", () => {
-    const { getter, setter } = createSpies();
     expect(typeof createResource(getter, setter)).toBe("function");
   });
 
   it("is returns a function when passed a getter, setter, and entryPredicate", () => {
-    const { getter, setter, entryPredicate } = createSpies();
     expect(typeof createResource(getter, setter, entryPredicate)).toBe(
       "function"
     );
   });
 
   it("is returns a resource when passed a getter, setter, entryPredicate, and loader", () => {
-    const { getter, setter, entryPredicate, loader } = createSpies();
     const resource = createResource(getter, setter, entryPredicate, loader);
-    expect(
-      Object.keys(resource).map(key => [key, typeof resource[key]])
-    ).toMatchSnapshot();
+
+    expect(typeof resource.getState).toBe("function");
+    expect(typeof resource.setState).toBe("function");
+    expect(typeof resource.refresh).toBe("function");
+    expect(typeof resource.useEntry).toBe("function");
+    expect(typeof resource.subscribe).toBe("function");
   });
 
-  it("is returns a resource when passed a getter, setter, entryPredicate, loader, and getInitialState", () => {
-    const { getter, setter, entryPredicate, loader } = createSpies();
-    const resource = createResource(getter, setter, entryPredicate, loader);
-    expect(
-      Object.keys(resource).map(key => [key, typeof resource[key]])
-    ).toMatchSnapshot();
+  // ---------------------------
+  // Usage Tests
+  // ---------------------------
+
+  it("can setState and getState", () => {
+    const [resource] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      Boolean,
+      () => Promise.resolve("resolved")
+    );
+
+    expect(resource.getState()).toBe(undefined);
+    resource.setState("new resource state");
+    expect(resource.getState()).toBe("new resource state");
+  });
+
+  it("can setState using a function", () => {
+    const [resource] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      Boolean,
+      () => Promise.resolve("resolved")
+    );
+
+    resource.setState("initial state");
+
+    expect(resource.getState()).toBe("initial state");
+    resource.setState(value => value.toUpperCase());
+    expect(resource.getState()).toBe("INITIAL STATE");
+  });
+
+  it("can refresh", async () => {
+    const [resource, spies] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      Boolean,
+      () => Promise.resolve("resolved")
+    );
+
+    expect(resource.getState()).toBe(undefined);
+    await resource.refresh();
+    expect(spies.loader).toHaveBeenCalled();
+    expect(resource.getState()).toBe("resolved");
+  });
+
+  it("can subscribe", async () => {
+    const [resource] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      Boolean,
+      () => Promise.resolve("resolved")
+    );
+
+    const spy = jest.fn().mockImplementation(() => resource.getState());
+
+    resource.subscribe(spy);
+
+    await resource.refresh();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveLastReturnedWith("resolved");
+
+    resource.setState("new resource state");
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveLastReturnedWith("new resource state");
   });
 });
-
-/**
-
-const storageKey = "SYSTEMS";
-
-// const createResource = curryN(4, (..., getInitialState = Promise.reject) => {
-//   // ...
-// })
-
-const systemsResource = createResource(
-  (currentState = {}, [authToken, customerId]) => currentState[customerId],
-  (currentState = {}, [authToken, customerId], systems) => ({
-    ...currentState,
-    [customerId]: systems
-  }),
-  (currentState = {}, [authToken, customerId]) => typeof currentState[customerId] !== "undefined",
-  (authToken, customerId) => fetch(`/v2/customers/${customerId}/control_systems?auth_token=${authToken}`)
-);
-
-systemsResource.subscribe(() => {
-  localforage.setItem(storageKey, serialize(resource.getState()));
-});
-
-const Systems = () => {
-  const [systems, setSystems] = useEntry(systemsResource, [authToken, customerId]);
-}
- */
