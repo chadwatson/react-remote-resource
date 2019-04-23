@@ -1,18 +1,11 @@
 import { useState, useEffect, useCallback, useContext } from "react";
 import uuid from "uuid/v1";
-import { curry, curryN } from "ramda";
+import { curry } from "ramda";
 import store, { selectResource, RECEIVE_STATE } from "./store";
 import Context from "./Context";
 
-const createResource = curryN(
-  4,
-  (
-    entryGetter,
-    entrySetter,
-    entryPredicate,
-    loader,
-    getInitialState = value => Promise.reject(value)
-  ) => {
+const createResource = curry(
+  (entryGetter, entrySetter, entryPredicate, loader) => {
     const resourceId = uuid();
 
     const getResourceState = () =>
@@ -47,7 +40,6 @@ const createResource = curryN(
     const pendingLoaders = new Map();
 
     return {
-      id: resourceId,
       getState: getResourceState,
       setState: setResourceState,
       refresh: (...args) => loader(...args).then(setEntryState(args)),
@@ -62,8 +54,9 @@ const createResource = curryN(
             // Important! The return value is used to unsubscribe from the store
             subscribe(() => {
               const nextState = getResourceState();
+              /* istanbul ignore else */
               if (nextState !== state) {
-                setState(nextState);
+                setState(entryGetter(nextState, args));
               }
             }),
           [state]
@@ -76,8 +69,7 @@ const createResource = curryN(
         if (!entryPredicate(entryGetter(resourceState, args), args)) {
           pendingLoaders.set(
             entryId,
-            getInitialState()
-              .catch(() => loader(...args))
+            loader(...args)
               .then(setEntryState(args))
               .catch(registerError)
               .finally(() => {
