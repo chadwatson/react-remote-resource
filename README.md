@@ -10,11 +10,11 @@ Intuitive remote data management in React
 
 ### How does it work?
 
-`react-remote-resource` creates composible `resources` that act as the single point of truth for a remote resource.
+`react-remote-resource` creates composable `resources` that act as the single point of truth for a remote resource.
 
 #### Lifecycle
 
-When a `resource` is used, it will check against an internal cache for a valid data entry. If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary`, using `Suspsense` under the hood, will catch the Promise from the `load` function, and render the `fallback` until all outstanding Promises resolve. If any of the Promises reject, the `RemoteResourceBoundary` calls `renderError` and `onLoadError` (if provided) otherwise it returns the `children`.
+A resource is meant to be used inside of React components using the `useEntry` hook attached to the resource. This hook will check against an internal cache for a valid data entry. If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary` (using `Suspense` under the hood) will catch the Promise from the `load` function and render the `fallback` until all outstanding Promises resolve. If any Promise rejects, the `RemoteResourceBoundary` will render the required `renderError` prop and `onLoadError` will be called, if provided. Otherwise `children` will be rendered.
 
 This provides a straightforward and consistent way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
 
@@ -220,7 +220,7 @@ A higher order function that adds persistence to a specific resource.
 
 - `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
 
-- `saveState` - A function that receives the state whenever the resource state updates.
+- `saveState` - A function that is called any time the resource state changes. It provides the new state, giving you the ability to persist it to something like `localStorage`.
 
 - `resource` - The resource to persist
 
@@ -228,7 +228,7 @@ A higher order function that adds persistence to a specific resource.
 const todosResource = persistResource(
   () => {
     const result = localStorage.getItem("todos");
-    return result ? Promise.resolve(JSON.stringify(result)) : Promise.reject();
+    return result ? Promise.resolve(JSON.parse(result)) : Promise.reject();
   },
   state => {
     localStorage.setItem("todos", JSON.stringify(state));
