@@ -218,7 +218,7 @@ A higher order function that adds persistence to a specific resource.
 
 #### Params
 
-- `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promised is used as the initial state of the entire resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
+- `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
 
 - `saveState` - A function that receives the state whenever the resource state updates.
 
