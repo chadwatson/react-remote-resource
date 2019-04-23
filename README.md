@@ -233,14 +233,7 @@ const todosResource = persistResource(
   state => {
     localStorage.setItem("todos", JSON.stringify(state));
   },
-  createSingleEntryResource(
-    () =>
-      new Promise(resolve => {
-        setTimeout(() => {
-          resolve(todos);
-        }, 1000);
-      })
-  )
+  createSingleEntryResource(() => fetch("/api/todos"))
 );
 ```
 
