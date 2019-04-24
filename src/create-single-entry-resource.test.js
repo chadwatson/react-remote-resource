@@ -1,19 +1,8 @@
 import React from "react";
 import { render, waitForElement } from "react-testing-library";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createSingleEntryResource from "./create-single-entry-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
-
-// ---------------------------
-// Mocks
-// ---------------------------
-
-const MockResourceConsumer = ({ resource }) => {
-  const [entry] = useEntry(resource);
-
-  return entry;
-};
 
 // ---------------------------
 // Tests
@@ -31,12 +20,18 @@ describe("createSingleEntryResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
     const { getByText } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 
@@ -50,6 +45,12 @@ describe("createSingleEntryResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
     resource.setState("other state");
 
     const { container, getByText } = render(
@@ -57,7 +58,7 @@ describe("createSingleEntryResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 

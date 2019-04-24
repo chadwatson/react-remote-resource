@@ -1,20 +1,9 @@
 import React from "react";
 import { render, waitForElement, wait } from "react-testing-library";
 import { identity } from "ramda";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createTimedKeyedResource from "./create-timed-keyed-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
-
-// ---------------------------
-// Mocks
-// ---------------------------
-
-const MockResourceConsumer = ({ resource, index }) => {
-  const [entry] = useEntry(resource, [index]);
-
-  return entry;
-};
 
 // ---------------------------
 // Tests
@@ -32,14 +21,20 @@ describe("createTimedKeyedResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = ({ index }) => {
+      const [entry] = resource.useEntry(index);
+
+      return entry;
+    };
+
     const { container } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
-        <MockResourceConsumer resource={resource} index={1} />
-        <MockResourceConsumer resource={resource} index={2} />
+        <Example index={0} />
+        <Example index={1} />
+        <Example index={2} />
       </RemoteResourceBoundary>
     );
 
@@ -60,12 +55,18 @@ describe("createTimedKeyedResource", () => {
       return Promise.resolve(count);
     });
 
+    const Example = ({ index }) => {
+      const [entry] = resource.useEntry(index);
+
+      return entry;
+    };
+
     const { getByText, rerender } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
+        <Example index={0} />
       </RemoteResourceBoundary>
     );
 
@@ -77,7 +78,7 @@ describe("createTimedKeyedResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
+        <Example index={0} />
       </RemoteResourceBoundary>
     );
 
@@ -90,7 +91,7 @@ describe("createTimedKeyedResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
+        <Example index={0} />
       </RemoteResourceBoundary>
     );
 

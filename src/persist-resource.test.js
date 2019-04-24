@@ -1,7 +1,6 @@
 import React from "react";
 import { render, waitForElement } from "react-testing-library";
 import { identity } from "ramda";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import persistResource from "./persist-resource";
 import createKeyedResource from "./create-keyed-resource";
@@ -12,7 +11,7 @@ import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 // ---------------------------
 
 const MockResourceConsumer = ({ resource, index }) => {
-  const [entry] = useEntry(resource, [index]);
+  const [entry] = resource.useEntry(index);
 
   return entry;
 };

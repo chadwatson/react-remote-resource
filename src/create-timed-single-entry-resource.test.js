@@ -1,18 +1,7 @@
 import React from "react";
 import { render, waitForElement } from "react-testing-library";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createTimedSingleEntryResource from "./create-timed-single-entry-resource";
-
-// ---------------------------
-// Mocks
-// ---------------------------
-
-const MockResourceConsumer = ({ resource }) => {
-  const [entry] = useEntry(resource);
-
-  return entry;
-};
 
 // ---------------------------
 // Tests
@@ -24,12 +13,18 @@ describe("createTimedSingleEntryResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
     const { getByText } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 
@@ -45,12 +40,18 @@ describe("createTimedSingleEntryResource", () => {
       return Promise.resolve(count);
     });
 
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
     const { getByText, rerender } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 
@@ -62,7 +63,7 @@ describe("createTimedSingleEntryResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 
@@ -75,7 +76,7 @@ describe("createTimedSingleEntryResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} />
+        <Example />
       </RemoteResourceBoundary>
     );
 

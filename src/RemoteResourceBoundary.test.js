@@ -1,6 +1,5 @@
 import React from "react";
 import { render, waitForElement, fireEvent } from "react-testing-library";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import { createMockResource } from "./__mocks__/create-mock-resource";
 
@@ -9,7 +8,7 @@ import { createMockResource } from "./__mocks__/create-mock-resource";
 // ---------------------------
 
 const MockResourceConsumer = ({ resource }) => {
-  const [entry] = useEntry(resource);
+  const [entry] = resource.useEntry();
 
   return entry;
 };

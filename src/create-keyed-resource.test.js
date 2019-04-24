@@ -1,20 +1,9 @@
 import React from "react";
 import { render, waitForElement, wait } from "react-testing-library";
 import { identity } from "ramda";
-import useEntry from "./use-entry";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createKeyedResource from "./create-keyed-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
-
-// ---------------------------
-// Mocks
-// ---------------------------
-
-const MockResourceConsumer = ({ resource, index }) => {
-  const [entry] = useEntry(resource, [index]);
-
-  return entry;
-};
 
 // ---------------------------
 // Tests
@@ -32,14 +21,20 @@ describe("createKeyedResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = ({ index }) => {
+      const [entry] = resource.useEntry(index);
+
+      return entry;
+    };
+
     const { container } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
-        <MockResourceConsumer resource={resource} index={1} />
-        <MockResourceConsumer resource={resource} index={2} />
+        <Example index={0} />
+        <Example index={1} />
+        <Example index={2} />
       </RemoteResourceBoundary>
     );
 
@@ -57,6 +52,12 @@ describe("createKeyedResource", () => {
       Promise.resolve("resolved")
     );
 
+    const Example = ({ index }) => {
+      const [entry] = resource.useEntry(index);
+
+      return entry;
+    };
+
     resource.setState({ 0: "other state" });
 
     const { container, getByText } = render(
@@ -64,7 +65,7 @@ describe("createKeyedResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <MockResourceConsumer resource={resource} index={0} />
+        <Example index={0} />
       </RemoteResourceBoundary>
     );
 
