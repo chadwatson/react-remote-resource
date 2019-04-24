@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import uuid from "uuid/v1";
-import { curry } from "ramda";
+import { curry, curryN } from "ramda";
 import store, { selectResource, RECEIVE_STATE } from "./store";
 import Context from "./Context";
 
-const createResource = curry(
-  (entryGetter, entrySetter, entryPredicate, loader) => {
+const createResource = curryN(
+  3,
+  (entryGetter, entrySetter, loader, entriesExpireAfter = Infinity) => {
     const resourceId = uuid();
 
     const getResourceState = () =>
@@ -38,12 +39,16 @@ const createResource = curry(
     };
 
     const pendingLoaders = new Map();
+    const entriesLastUpdatedById = new Map();
 
     return {
       getState: getResourceState,
       setState: setResourceState,
       refresh: (...args) => loader(...args).then(setEntryState(args)),
       useEntry: (...args) => {
+        const renderCount = useRef(0);
+        renderCount.current += 1;
+
         const resourceState = getResourceState();
         const [state, setState] = useState(entryGetter(resourceState, args));
         const { registerError } = useContext(Context);
@@ -66,7 +71,14 @@ const createResource = curry(
           throw pendingLoaders.get(entryId);
         }
 
-        if (!entryPredicate(entryGetter(resourceState, args), args)) {
+        const entryIsExpired =
+          (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter <
+          Date.now();
+
+        if (
+          entryGetter(resourceState, args) === undefined ||
+          (entryIsExpired && renderCount.current === 1)
+        ) {
           pendingLoaders.set(
             entryId,
             loader(...args)
@@ -74,6 +86,7 @@ const createResource = curry(
               .catch(registerError)
               .finally(() => {
                 pendingLoaders.delete(entryId);
+                entriesLastUpdatedById.set(entryId, Date.now());
               })
           );
           throw pendingLoaders.get(entryId);

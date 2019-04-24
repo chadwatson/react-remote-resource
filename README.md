@@ -36,9 +36,8 @@ yarn add react-remote-resource
 
 ```jsx
 import {
-  createResource,
   createSingleEntryResource,
-  createTimedKeyedResource,
+  createKeyedResource,
   useEntry,
   RemoteResourceBoundary,
 } from "react-remote-resource";
@@ -47,15 +46,15 @@ const userResource = createSingleEntryResource(
   userId => fetchJson(`/api/users/${userId}`
 );
 
-const tweetsResource = createTimedKeyedResource(
-  10000,
+const tweetsResource = createKeyedResource(
   userId => userId,
-  userId => fetchJson(`/api/users/${userId}/tweets`)
+  userId => fetchJson(`/api/users/${userId}/tweets`),
+  10000,
 );
 
 const UserInfo = ({ userId }) => {
-  const [user] = useEntry(userResource, [userId]);
-  const [tweets] = useEntry(tweetsResource, [userId]);
+  const [user] = userResource.useEntry(userId);
+  const [tweets] = tweetsResource.useEntry(userId);
 
   return (
     <div>
@@ -69,7 +68,7 @@ const UserInfo = ({ userId }) => {
 };
 
 const Tweets = ({ userId }) => {
-  const [tweets] = useEntry(tweetsResource, [userId]);
+  const [tweets] = tweetsResource.useEntry(userId);
 
   return (
     <>
@@ -150,11 +149,11 @@ const productsResource = createResource(
     [id]: product
   }),
 
-  // A predicate that tests whether the entry is still valid.
-  (product, args) => !!product,
-
   // The loader function that fetches data. Should return a promise.
-  id => fetch(`/api/products/${id}`).then(response => response.json())
+  id => fetch(`/api/products/${id}`).then(response => response.json()),
+
+  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
+  10 * 60 * 1000
 );
 ```
 
@@ -165,22 +164,16 @@ const productsResource = createResource(
 Creates a resource that only has one entry. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched.
 
 ```javascript
-const myResource = createSingleEntryResource(authToken =>
-  fetch(`/api/about_me?auth_token=${authToken}`)
+const myResource = createSingleEntryResource(
+  // The loader function that fetches data. Should return a promise.
+  authToken => fetch(`/api/about_me?auth_token=${authToken}`),
+
+  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
+  5000
 );
 ```
 
-&nbsp;
-
-### `createTimedSingleEntryResource`
-
-An opinionated version of `createSingleEntryResource` that keeps track of the last time the data was fetched. When an attempt to use the resource state occurs more than the given amount of milliseconds since the last fetch then the state is considered invalid, and the loader is called.
-
-```javascript
-const myResource = createTimedSingleEntryResource(10000, authToken =>
-  fetch(`/api/about_me?auth_token=${authToken}`)
-);
-```
+#### [`createSingleEntryResource` example on CodeSandbox](https://codesandbox.io/s/xpn5nq3ol4)
 
 &nbsp;
 
@@ -192,47 +185,41 @@ Creates a resource that organizes its entries into an object literal. It takes a
 const myResource = createKeyedResource(
   // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
   (authToken, userId) => userId,
-  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
+
+  // The loader function that fetches data. Should return a promise.
+  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`),
+
+  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
+  1 * 60 * 1000
 );
 ```
 
 &nbsp;
 
-### `createTimedKeyedResource`
-
-An opinionated version of `createKeyedResource` that has the same timeout functionality as `createTimedSingleEntryResource` except that each entry in the resource state can timeout independently.
-
-```javascript
-const myResource = createTimedKeyedResource(
-  10000,
-  (authToken, userId) => userId,
-  (authToken, userId) => fetch(`/api/about_me?auth_token=${authToken}`)
-);
-```
+---
 
 &nbsp;
+
+## Resource Enhancers
 
 ### `persistResource`
 
 A higher order function that adds persistence to a specific resource.
 
-#### Params
-
-- `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
-
-- `saveState` - A function that is called any time the resource state changes. It provides the new state, giving you the ability to persist it to something like `localStorage`.
-
-- `resource` - The resource to persist
-
 ```javascript
 const todosResource = persistResource(
+  // `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
   () => {
     const result = localStorage.getItem("todos");
     return result ? Promise.resolve(JSON.parse(result)) : Promise.reject();
   },
+
+  // `saveState` - A function that is called any time the resource state changes. It provides the new state, giving you the ability to persist it to something like `localStorage`.
   state => {
     localStorage.setItem("todos", JSON.stringify(state));
   },
+
+  // `resource` - The resource to persist
   createSingleEntryResource(() => fetch("/api/todos"))
 );
 ```
@@ -278,22 +265,18 @@ const UserProfile = ({ userId }) => (
 
 ## React Hooks
 
-### `useEntry`
+### `resource.useEntry`
 
 A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
 
 Under the hood `react-remote-resource` implements a redux store. Every resource get its own state in the store.
 
 ```jsx
-import {
-  createRemoteResouce,
-  useEntry,
-  useAutoSave
-} from "react-remote-resource";
+import { createRemoteResouce, useAutoSave } from "react-remote-resource";
 import { savePost, postsResource } from "../resources/posts";
 
 const PostForm = ({ postId }) => {
-  const [post, setPost] = useEntry(postsResource, [postId]);
+  const [post, setPost] = postsResource.useEntry(postId);
 
   useAutoSave(post, savePost);
 
