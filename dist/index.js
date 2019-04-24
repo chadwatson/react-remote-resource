@@ -1,6 +1,6 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curry } from 'ramda';
-import React, { createContext, useState, useContext, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
+import { curryN, curry } from 'ramda';
+import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { Map as Map$1 } from 'immutable';
@@ -11,11 +11,7 @@ const initialRootState = Map$1({
   resourcesById: Map$1()
 });
 
-const rootReducer = function rootReducer(state, action) {
-  if (state === void 0) {
-    state = initialRootState;
-  }
-
+const rootReducer = (state, action) => {
   switch (action.type) {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
@@ -25,12 +21,8 @@ const rootReducer = function rootReducer(state, action) {
   }
 };
 
-const store = createStore(rootReducer);
-const selectResource = function selectResource(state, _ref) {
-  if (state === void 0) {
-    state = initialRootState;
-  }
-
+const store = createStore(rootReducer, initialRootState);
+const selectResource = (state, _ref) => {
   let resourceId = _ref.resourceId;
   return state.getIn(["resourcesById", resourceId]);
 };
@@ -39,7 +31,11 @@ const Context = createContext({
   registerError: () => {}
 });
 
-const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) => {
+const createResource = curryN(3, function (entryGetter, entrySetter, loader, entriesExpireAfter) {
+  if (entriesExpireAfter === void 0) {
+    entriesExpireAfter = Infinity;
+  }
+
   const resourceId = uuid();
 
   const getResourceState = () => selectResource(store.getState(), {
@@ -69,8 +65,8 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
   };
 
   const pendingLoaders = new Map();
+  const entriesLastUpdatedById = new Map();
   return {
-    id: resourceId,
     getState: getResourceState,
     setState: setResourceState,
     refresh: function refresh() {
@@ -81,11 +77,13 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
       return loader(...args).then(setEntryState(args));
     },
     useEntry: function useEntry() {
-      const resourceState = getResourceState();
-
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
         args[_key2] = arguments[_key2];
       }
+
+      const renderCount = useRef(0);
+      renderCount.current += 1;
+      const resourceState = getResourceState();
 
       const _useState = useState(entryGetter(resourceState, args)),
             state = _useState[0],
@@ -98,9 +96,10 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
       useEffect(() => // Important! The return value is used to unsubscribe from the store
       subscribe(() => {
         const nextState = getResourceState();
+        /* istanbul ignore else */
 
         if (nextState !== state) {
-          setState(nextState);
+          setState(entryGetter(nextState, args));
         }
       }), [state]);
 
@@ -108,9 +107,12 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
         throw pendingLoaders.get(entryId);
       }
 
-      if (!entryPredicate(entryGetter(resourceState, args), args)) {
+      const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
+
+      if (entryGetter(resourceState, args) === undefined || entryIsExpired && renderCount.current === 1) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
           pendingLoaders.delete(entryId);
+          entriesLastUpdatedById.set(entryId, Date.now());
         }));
         throw pendingLoaders.get(entryId);
       }
@@ -121,7 +123,7 @@ const createResource = curry((entryGetter, entrySetter, entryPredicate, loader) 
   };
 });
 
-const createKeyedResource = curry((createKey, loader) => createResource(function (resourceState, args) {
+const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) => createResource(function (resourceState, args) {
   if (resourceState === void 0) {
     resourceState = {};
   }
@@ -135,47 +137,16 @@ const createKeyedResource = curry((createKey, loader) => createResource(function
   return _extends({}, resourceState, {
     [createKey(...args)]: data
   });
-}, entryState => typeof entryState !== "undefined", loader));
+}, loader, entriesExpireAfter));
 
-const createSingleEntryResource = loader => createResource(resourceState => resourceState, (resourceState, args, data) => data, entryState => typeof entryState !== "undefined", loader);
-
-const createTimedKeyedResource = curry((ms, createKey, loader) => {
-  const updatedAt = new Map();
-  return createResource(function (resourceState, args) {
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
-
-    return resourceState[createKey(...args)];
-  }, function (resourceState, args, data) {
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
-
-    const key = createKey(...args);
-    updatedAt.set(key, Date.now());
-    return _extends({}, resourceState, {
-      [key]: data
-    });
-  }, (entryState, args) => typeof entryState !== "undefined" && updatedAt.get(createKey(...args)) + ms > Date.now(), loader);
-});
-
-const createTimedSingleEntryResource = curry((ms, loader) => {
-  let updatedAt = 0;
-  return createResource(resourceState => resourceState, (resourceState, args, data) => {
-    updatedAt = Date.now();
-    return data;
-  }, entryState => typeof entryState !== "undefined" && updatedAt + ms > Date.now(), loader);
-});
+const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, entriesExpireAfter);
 
 const RemoteResourceBoundary = (_ref) => {
   let children = _ref.children,
       _ref$onLoadError = _ref.onLoadError,
       onLoadError = _ref$onLoadError === void 0 ? () => {} : _ref$onLoadError,
-      _ref$fallback = _ref.fallback,
-      fallback = _ref$fallback === void 0 ? null : _ref$fallback,
-      _ref$renderError = _ref.renderError,
-      renderError = _ref$renderError === void 0 ? error => null : _ref$renderError;
+      fallback = _ref.fallback,
+      renderError = _ref.renderError;
 
   const _useState = useState(Maybe.Nothing()),
         error = _useState[0],
@@ -202,25 +173,23 @@ const useAutoSave = function useAutoSave(value, save, delay) {
     delay = 1000;
   }
 
-  useEffect(() => {
-    const timeout = setTimeout(() => save(value), delay);
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [value]);
+  const initialValue = useRef(value);
+  const currentValue = useRef(value);
+  const timeout = useRef(null);
+  currentValue.current = value;
   useEffect(() => () => {
-    if (value) {
-      save(value);
+    if (timeout.current !== null) {
+      save(currentValue.current);
     }
   }, []);
-};
-
-const useEntry = function useEntry(resource, args) {
-  if (args === void 0) {
-    args = [];
-  }
-
-  return resource.useEntry(...args);
+  useEffect(() => {
+    if (value !== initialValue.current) {
+      timeout.current = setTimeout(() => save(value), delay);
+      return () => {
+        clearTimeout(timeout.current);
+      };
+    }
+  }, [value]);
 };
 
 const useSuspense = fn => {
@@ -237,15 +206,12 @@ const useSuspense = fn => {
     throw task;
   }
 
-  return () => setTask(fn().then(() => {
-    if (mounted.current) {
-      setTask(null);
-    }
-  }).catch(() => {
+  return () => setTask(fn().finally(() => {
+    /* istanbul ignore else */
     if (mounted.current) {
       setTask(null);
     }
   }));
 };
 
-export { createKeyedResource, createResource, createSingleEntryResource, createTimedKeyedResource, createTimedSingleEntryResource, RemoteResourceBoundary, useAutoSave, useEntry, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSingleEntryResource, useAutoSave, useSuspense };
