@@ -47,7 +47,7 @@ describe("RemoteResourceBoundary", () => {
     const { getByText } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
-        renderError={rejected => <p>{rejected}</p>}
+        renderError={({ error }) => <p>{error}</p>}
       >
         <MockResourceConsumer resource={resource} />
       </RemoteResourceBoundary>
@@ -69,7 +69,7 @@ describe("RemoteResourceBoundary", () => {
     const { getByText } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
-        renderError={rejected => <p>{rejected}</p>}
+        renderError={({ error }) => <p>{error}</p>}
         onLoadError={spy}
       >
         <MockResourceConsumer resource={resource} />
@@ -100,9 +100,9 @@ describe("RemoteResourceBoundary", () => {
     const { getByText } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
-        renderError={(rejected, retry) => (
+        renderError={({ error, retry }) => (
           <p>
-            {rejected}
+            {error}
             <button onClick={retry}>retry</button>
           </p>
         )}

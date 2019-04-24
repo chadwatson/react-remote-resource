@@ -188,7 +188,10 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   return React__default.createElement(Context.Provider, {
     value: providerValue
   }, error.map(function (err) {
-    return renderError(err, clearError);
+    return renderError({
+      error: err,
+      retry: clearError
+    });
   }).getOrElse(React__default.createElement(React.Suspense, {
     fallback: fallback
   }, children)));

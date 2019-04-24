@@ -26,7 +26,7 @@ const RemoteResourceBoundary = ({
   return (
     <Context.Provider value={providerValue}>
       {error
-        .map(err => renderError(err, clearError))
+        .map(err => renderError({ error: err, retry: clearError }))
         .getOrElse(<Suspense fallback={fallback}>{children}</Suspense>)}
     </Context.Provider>
   );
