@@ -163,7 +163,10 @@ const RemoteResourceBoundary = (_ref) => {
   }, []);
   return React.createElement(Context.Provider, {
     value: providerValue
-  }, error.map(err => renderError(err, clearError)).getOrElse(React.createElement(Suspense, {
+  }, error.map(err => renderError({
+    error: err,
+    retry: clearError
+  })).getOrElse(React.createElement(Suspense, {
     fallback: fallback
   }, children)));
 };

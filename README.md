@@ -92,7 +92,7 @@ const Tweets = ({ userId }) => {
 const UserProfile = ({ userId }) => (
   <RemoteResourceBoundary
     fallback={<p>Loading...</p>}
-    renderError={(error, retry) => (
+    renderError={({ error, retry }) => (
       <div>
         <p>{error}</p>
         <button onClick={retry}>Retry</button>
@@ -244,10 +244,10 @@ const UserProfile = ({ userId }) => (
     /* Optional: A callback that is invoked when any thrown promise rejects */
     onLoadError={logError}
     /* A render prop that receives the error and a function to clear the error, which allows the children to re-render and attempt loading again */
-    renderError={(error, clearError) => (
+    renderError={({ error, retry }) => (
       <div>
         <p>{error}</p>
-        <button onClick={clearError}>Try again</button>
+        <button onClick={retry}>Try again</button>
       </div>
     )}
   >
