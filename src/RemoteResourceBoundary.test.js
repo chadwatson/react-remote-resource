@@ -22,7 +22,6 @@ describe("RemoteResourceBoundary", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.resolve("resolved")
     );
 
@@ -42,7 +41,6 @@ describe("RemoteResourceBoundary", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.reject("rejected")
     );
 
@@ -65,7 +63,6 @@ describe("RemoteResourceBoundary", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.reject("rejected")
     );
 
@@ -90,7 +87,6 @@ describe("RemoteResourceBoundary", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => {
         if (callCount === 0) {
           callCount++;

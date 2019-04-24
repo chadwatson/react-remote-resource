@@ -1,10 +1,14 @@
 import createResource from "../create-resource";
 
-export const createMockResource = (getter, setter, entryPredicate, loader) => {
+export const createMockResource = (
+  getter,
+  setter,
+  loader,
+  entriesExpireAfter
+) => {
   const spies = {
     getter: jest.fn().mockImplementation(getter),
     setter: jest.fn().mockImplementation(setter),
-    entryPredicate: jest.fn().mockImplementation(entryPredicate),
     loader: jest.fn().mockImplementation(loader)
   };
 
@@ -12,8 +16,8 @@ export const createMockResource = (getter, setter, entryPredicate, loader) => {
     createResource(
       spies.getter,
       spies.setter,
-      spies.entryPredicate,
-      spies.loader
+      spies.loader,
+      entriesExpireAfter
     ),
     spies
   ];

@@ -7,7 +7,6 @@ import RemoteResourceBoundary from "./RemoteResourceBoundary";
 
 const getter = jest.fn();
 const setter = jest.fn();
-const entryPredicate = jest.fn();
 const loader = jest.fn();
 
 // ---------------------------
@@ -23,22 +22,20 @@ describe("createResource", () => {
     expect(typeof createResource).toBe("function");
   });
 
-  it("is returns a function when passed a getter", () => {
+  it("returns a function when passed a getter", () => {
     expect(typeof createResource(getter)).toBe("function");
   });
 
-  it("is returns a function when passed a getter and setter", () => {
+  it("returns a function when passed a getter and setter", () => {
     expect(typeof createResource(getter, setter)).toBe("function");
   });
 
-  it("is returns a function when passed a getter, setter, and entryPredicate", () => {
-    expect(typeof createResource(getter, setter, entryPredicate)).toBe(
-      "function"
-    );
+  it("returns a resource when passed a getter, setter, and loader", () => {
+    assertResourceShape(createResource(getter, setter, loader));
   });
 
-  it("is returns a resource when passed a getter, setter, entryPredicate, and loader", () => {
-    assertResourceShape(createResource(getter, setter, entryPredicate, loader));
+  it("returns a resource when passed a getter, setter, loader, and entriesExpireAfter ", () => {
+    assertResourceShape(createResource(getter, setter, loader, 1));
   });
 
   // ---------------------------
@@ -49,7 +46,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.resolve("resolved")
     );
 
@@ -62,7 +58,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.resolve("resolved")
     );
 
@@ -77,7 +72,6 @@ describe("createResource", () => {
     const [resource, spies] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.resolve("resolved")
     );
 
@@ -91,7 +85,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       () => Promise.resolve("resolved")
     );
 
@@ -112,7 +105,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       Promise.resolve.bind(Promise, "resolved")
     );
 
@@ -139,7 +131,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       Promise.resolve.bind(Promise, "resolved")
     );
 
@@ -169,7 +160,6 @@ describe("createResource", () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
-      Boolean,
       Promise.resolve.bind(Promise, "resolved")
     );
 
@@ -205,7 +195,6 @@ describe("createResource", () => {
         ...currentState,
         [index]: value
       }),
-      Boolean,
       index => Promise.resolve(`${index}: resolved`)
     );
 
@@ -252,8 +241,7 @@ describe("createResource", () => {
         ...currentState,
         [index]: value
       }),
-      Boolean,
-      index => Promise.resolve(`loaded value`)
+      () => Promise.resolve(`loaded value`)
     );
 
     // ---------------------------
@@ -306,5 +294,170 @@ describe("createResource", () => {
 
     await wait(() => expect(setter.textContent).toBe("final value"));
     await wait(() => expect(staticExample.textContent).toBe("final value"));
+  });
+
+  it("does not update data on remount even after entry is expired.", async () => {
+    // ---------------------------
+    // Setup
+    // ---------------------------
+
+    // This resource should increment it's count when the entries expire (after 100ms)
+
+    let count = 0;
+
+    const [resource] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      () => {
+        count += 1;
+        return Promise.resolve(count);
+      },
+      100
+    );
+
+    // Component uses specific resource entry then renders current count
+
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
+    // ---------------------------
+    // Rendering
+    // ---------------------------
+
+    // Initial render (initilizes resource - no entry should exist)
+    const { container, getByText, rerender } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // Load function has fired and has thrown the promise
+    await waitForElement(() => getByText("Loading..."));
+
+    // Load function completed and returned count
+    await waitForElement(() => getByText("1"));
+
+    rerender(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // The cached entry is used instead of hitting the load function
+    await waitForElement(() => getByText("1"));
+
+    // Wait until after the expiration of the resource entry
+    await delay(100);
+
+    // Ensure that the load function is not called again
+    const stopObservation = observeElement(() => {
+      expect(container).not.toHaveTextContent("2");
+      expect(container).not.toHaveTextContent("Loading...");
+    }, container);
+
+    rerender(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // Set the observation period to 100ms
+    await delay(100);
+
+    stopObservation();
+  });
+
+  it("refreshes data after expiration (mount)", async () => {
+    // ---------------------------
+    // Setup
+    // ---------------------------
+
+    // This resource should increment it's count when the entries expire (after 100ms)
+
+    let count = 0;
+
+    const [resource] = createMockResource(
+      value => value,
+      (_, __, value) => value,
+      () => {
+        count += 1;
+        return Promise.resolve(count);
+      },
+      100
+    );
+
+    // Component uses specific resource entry then renders current count
+
+    const Example = () => {
+      const [entry] = resource.useEntry();
+
+      return entry;
+    };
+
+    // ---------------------------
+    // Rendering
+    // ---------------------------
+
+    // Initial render (initilizes resource - no entry should exist)
+
+    const { getByText, rerender, unmount } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // Load function has fired and has thrown the promise
+    await waitForElement(() => getByText("Loading..."));
+
+    // Load function completed and returned count
+    await waitForElement(() => getByText("1"));
+
+    rerender(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // The cached entry is used instead of hitting the load function
+    await waitForElement(() => getByText("1"));
+
+    // Wait until after the expiration of the resource entry
+    await delay(100);
+
+    unmount();
+
+    // Remount a new component using the resource
+    const { getByText: getByTextRemount } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    // Load function has fired and has thrown the promise
+    await waitForElement(() => getByTextRemount("Loading..."));
+
+    // Load function completed and returned count
+    await waitForElement(() => getByTextRemount("2"));
   });
 });

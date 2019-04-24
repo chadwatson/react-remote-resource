@@ -16,6 +16,12 @@ describe("createKeyedResource", () => {
     );
   });
 
+  it("creates a resource (with entriesExpireAfter)", async () => {
+    assertResourceShape(
+      createKeyedResource(identity, () => Promise.resolve("resolved"), 1)
+    );
+  });
+
   it("correctly shapes the resource state by key", async () => {
     const resource = createKeyedResource(identity, () =>
       Promise.resolve("resolved")
