@@ -17,17 +17,12 @@ const useSuspense = fn => {
 
   return () =>
     setTask(
-      fn()
-        .then(() => {
-          if (mounted.current) {
-            setTask(null);
-          }
-        })
-        .catch(() => {
-          if (mounted.current) {
-            setTask(null);
-          }
-        })
+      fn().finally(() => {
+        /* istanbul ignore else */
+        if (mounted.current) {
+          setTask(null);
+        }
+      })
     );
 };
 

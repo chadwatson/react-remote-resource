@@ -7,7 +7,7 @@ const initialRootState = Map({
   resourcesById: Map()
 });
 
-const rootReducer = (state = initialRootState, action) => {
+const rootReducer = (state, action) => {
   switch (action.type) {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
@@ -16,9 +16,9 @@ const rootReducer = (state = initialRootState, action) => {
   }
 };
 
-const store = createStore(rootReducer);
+const store = createStore(rootReducer, initialRootState);
 
 export default store;
 
-export const selectResource = (state = initialRootState, { resourceId }) =>
+export const selectResource = (state, { resourceId }) =>
   state.getIn(["resourcesById", resourceId]);
