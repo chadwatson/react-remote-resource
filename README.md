@@ -194,6 +194,8 @@ const myResource = createKeyedResource(
 );
 ```
 
+#### [`createKeyedResource` example on CodeSandbox](https://codesandbox.io/s/9jwk17qyj4)
+
 &nbsp;
 
 ---
