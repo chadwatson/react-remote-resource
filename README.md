@@ -414,7 +414,7 @@ The the main difference between `createKeyedResource` and `createSingleEntryReso
 
 - `createSingleEntryResource` creates a resource with only a single entry. All data, regardless of the structure, will be stored in only one entry.
 
-Here are some examples scenerios that show when each of the :
+The following example scenerios show when `createKeyedResource` and `createSingleEntryResource` are best suited:
 
 #### Example Users API:
 
@@ -443,13 +443,10 @@ The app only needs the current user's information. Since the app only needs one 
 const load = id => fetch(`/api/users/${id}`);
 const userResource = createSingleEntryResource(load);
 
-const currentUserId = ...;
-
 const AboutMe = () => {
-  const [user] = userResource.useEntry(currentUserId);
-
+  const [user] = userResource.useEntry(12345);
   return ...;
-}
+};
 ```
 
 **Scenerio 2**
@@ -480,20 +477,24 @@ Assuming you have a clients API that takes an `account_rep_id` and returns a lis
 
 /api/clients/:account_rep_id
 
-{
-  123454: {
-      ...
+[
+  {
+    id: 123454,
+    ...
   },
-  508923: {
-      ...
+  {
+    id: 508923,
+    ...
   },
-  14: {
-      ...
+  {
+    id: 14,
+    ...
   },
-  995: {
-      ...
+  {
+    id: 995,
+    ...
   }
-}
+]
 
 */
 ```
@@ -504,16 +505,12 @@ The app only needs the current account rep's list: `createSingleEntryResource` w
 
 ```jsx
 const load = (id) => fetch(`/api/clients/${id}`);
-
 const clientsResource = createSingleEntryResource(load);
 
-const accountRepId = ...;
-
 const ClientList = () => {
-  const [clients] = clientsResource.useEntry(accountRepId);
-
+  const [clients] = clientsResource.useEntry(12345);
   return ...;
-}
+};
 ```
 
 **Scenerio 2:**
@@ -522,12 +519,10 @@ The app needs multiple account rep's client list: `createKeyedResource` is bette
 
 ```jsx
 const load = account_rep_id => fetch(`/api/clients/${account_rep_id}`);
-
 const clientsResource = createKeyedResource(id => id, load);
 
 const ClientList = ({ account_rep_id }) => {
   const [clients] = clientsResource.useEntry(account_rep_id);
-
   return ...;
 }
 ```
@@ -541,24 +536,28 @@ You have a posts api that takes no parameters and returns a list of posts organi
 
 /api/posts
 
-{
-  882: {
-    userId: 5,
-    ...
+[
+  {
+    id: 882,
+    userId: 5
   },
-  622: {
-    userId: 10,
-    ...
+  {
+    id: 622,
+    userId: 10
   },
-  1: {
-    userId: 1,
-    ...
+  {
+    id: 622,
+    userId: 10
   },
-  102: {
-    userId: 10,
-    ...
+  {
+    id: 1,
+    userId: 1
+  },
+  {
+    id: 102,
+    userId: 10
   }
-}
+]
 
 */
 ```
