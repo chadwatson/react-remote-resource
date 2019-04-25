@@ -460,7 +460,7 @@ The app needs to make individual requests to the same users API and store the re
 const load = id => fetch(`/api/users/${id}`);
 const usersResource = createKeyedResource(id => id, load);
 
-const User = ({id}) => {
+const User = ({ id }) => {
   const [user] = usersResource.useEntry(id);
 
   return ...;
