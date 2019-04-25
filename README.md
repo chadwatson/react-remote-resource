@@ -473,7 +473,7 @@ const UserList = ({ ids }) => {
 
 ### Example Clients API:
 
-Assuming You have a clients api that takes an account_rep_id and returns a list of clients for that specific account rep:
+Assuming you have a clients API that takes an `account_rep_id` and returns a list of clients for that specific account rep:
 
 ```javascript
 /*
