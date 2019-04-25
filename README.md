@@ -500,7 +500,7 @@ Assuming you have a clients API that takes an `account_rep_id` and returns a lis
 
 **Scenerio 1:**
 
-The app only needs the current account rep's list: createSingleEntryResource would work well.
+The app only needs the current account rep's list: `createSingleEntryResource` would work well.
 
 ```jsx
 const load = (id) => fetch(`/api/clients/${id}`);
