@@ -521,7 +521,7 @@ const ClientList = () => {
 The app needs multiple account rep's client list: `createKeyedResource` is better suited for this purpose.
 
 ```jsx
-const load = (account_rep_id) => fetch(`/api/clients/${account_rep_id}`);
+const load = account_rep_id => fetch(`/api/clients/${account_rep_id}`);
 
 const clientsResource = createKeyedResource(id => id, load);
 
