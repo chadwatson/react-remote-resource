@@ -454,7 +454,7 @@ const AboutMe = () => {
 
 **Scenerio 2**
 
-The app needs multiple users from the API. Since the app needs multiple entries from the api organized by key then createKeyedResource would then be a better choice.
+The app needs to make individual requests to the same users API and store the results independently. `createKeyedResource` would be the better choice.
 
 ```jsx
 const load = (id) => fetch(`/api/users/${id}`);
