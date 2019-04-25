@@ -408,9 +408,9 @@ const UserForm = () => (
 
 > ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
 
-A `resource`'s main concern is how the data should be available to your app, not necessarily how the external api is structured or called. Internally, every `resource` organizes the data it receives from the completed load function into entries.
+The the main difference between `createKeyedResource` and `createSingleEntryResource` is how the created `resource` stores its entries. Internally, every `resource` organizes the data it receives from the completed load function into entries. A `resource`'s main concern is how the data in the entries should be available to your app, not necessarily how the external api is structured or called.
 
-- `createKeyedResource` creates a resource with multiple entries that organized by a key. [See the first parameter on how entries are keyed](https://github.com/chadwatson/react-remote-resource#createkeyedresource).
+- `createKeyedResource` creates a resource with multiple entries that are organized by key. [See the first parameter on how entries are keyed](https://github.com/chadwatson/react-remote-resource#createkeyedresource).
 
 - `createSingleEntryResource` creates a resource with only a single entry. All data, regardless of the structure, will be stored in only one entry.
 
