@@ -437,7 +437,7 @@ Assuming You have a users api that takes an id and returns user information:
 
 **Scenerio 1:**
 
-The app only needs the current users information. Since the app only one entry from the api (the current users information and no others), `createSingleEntryResource` would work well.
+The app only needs the current user's information. Since the app only needs one entry from the api (the current user's information and no others), `createSingleEntryResource` would work well.
 
 ```jsx
 const load = (id) => fetch(`/api/users/${id}`);
