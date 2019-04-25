@@ -26,7 +26,7 @@ This provides a straightforward and consistent way to use data from remote resou
 
 ### Installation
 
-```
+```bash
 npm install react-remote-resource --save
 // or
 yarn add react-remote-resource
@@ -183,7 +183,7 @@ Creates a resource that organizes its entries into an object literal. It takes a
 
 ```javascript
 const myResource = createKeyedResource(
-  // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
+  // A function that takes all of the arguments that are supplied to the loader, from resource.useEntry, and uses the returned value as the key
   (authToken, userId) => userId,
 
   // The loader function that fetches data. Should return a promise.
@@ -395,3 +395,195 @@ const UserForm = () => (
   </div>
 );
 ```
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## FAQ
+
+> ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
+
+A `resource`'s main concern is how the data should be available to your app, not necessarily how the external api is structured or called. Internally, every `resource` organizes the data it receives from the completed load function into entries.
+
+- `createKeyedResource` creates a resource with multiple entries that organized by a key. [See the first parameter on how entries are keyed](https://github.com/chadwatson/react-remote-resource#createkeyedresource).
+
+- `createSingleEntryResource` creates a resource with only a single entry. All data, regardless of the structure, will be stored in only one entry.
+
+Here are some examples scenerios that show when each of the :
+
+#### Example Users API:
+
+Assuming You have a users api that takes an id and returns user information:
+
+```javascript
+/*
+  
+  /api/users/:id
+
+  Example Response:
+  {
+    name: "name",
+    id: {userId},
+    ...
+  }
+
+*/
+```
+
+**Scenerio 1:**
+
+The app only needs the current users information. Since the app only one entry from the api (the current users information and no others), `createSingleEntryResource` would work well.
+
+```jsx
+const load = (id) => fetch(`/api/users/${id}`);
+const userResource = createSingleEntryResource(load);
+
+const currentUserId = ...;
+
+const AboutMe = () => {
+  const [user] = userResource.useEntry(currentUserId);
+
+  return ...;
+}
+```
+
+**Scenerio 2**
+
+The app needs multiple users from the API. Since the app needs multiple entries from the api organized by key then createKeyedResource would then be a better choice.
+
+```jsx
+const load = (id) => fetch(`/api/users/${id}`);
+const usersResource = createKeyedResource(id => id, load);
+
+const User = ({id}) => {
+  const [user] = usersResource.useEntry(id);
+
+  return ...;
+}
+
+const UserList = ({ids}) => {
+  return ids.map(id => <User key={id} id={id} />
+}
+```
+
+### Example Clients API:
+
+Assuming You have a clients api that takes an account_rep_id and returns a list of clients for that specific account rep:
+
+```javascript
+/*
+
+/api/clients/:account_rep_id
+
+{
+  123454: {
+      ...
+  },
+  508923: {
+      ...
+  },
+  14: {
+      ...
+  },
+  995: {
+      ...
+  }
+}
+
+*/
+```
+
+**Scenerio 1:**
+
+The app only needs the current account rep's list: createSingleEntryResource would work well.
+
+```jsx
+const load = (id) => fetch(`/api/clients/${id}`);
+
+const clientsResource = createSingleEntryResource(load);
+
+const accountRepId = ...;
+
+const ClientList = () => {
+  const [clients] = clientsResource.useEntry(accountRepId);
+
+  return ...;
+}
+```
+
+**Scenerio 2:**
+
+The app needs multiple account rep's client list: This is suited better for createKeyedResource.
+
+```jsx
+const load = (account_rep_id) => fetch(`/api/clients/${account_rep_id}`);
+
+const clientsResource = createKeyedResource(id => id, load);
+
+const ClientList = ({account_rep_id}) => {
+  const [clients] = clientsResource.useEntry(account_rep_id);
+
+  return ...;
+}
+```
+
+### Example Posts API:
+
+You have a posts api that takes no parameters and returns a list of posts organized by post id:
+
+```javascript
+/*
+
+/api/posts
+
+{
+  882: {
+    userId: 5,
+    ...
+  },
+  622: {
+    userId: 10,
+    ...
+  },
+  1: {
+    userId: 1,
+    ...
+  },
+  102: {
+    userId: 10,
+    ...
+  }
+}
+
+*/
+```
+
+The app itself needs the data to be organized by userId.
+
+`createSingleEntryResource` could be utilized and composed for this:
+
+```jsx
+const postsResource = createSingleEntryResource(() =>
+  fetch("/api/posts").then(posts =>
+    posts.reduce(
+      (acc, post) => ({
+        ...acc,
+        [post.userId]: acc[post.userId] ? [...acc[post.userId], post] : [post]
+      }),
+      {}
+    )
+  )
+);
+
+const useUsersPosts = id => {
+  const [allPosts] = postsResources.useEntry();
+  return allPosts[id] || [];
+};
+```
+
+### Last Note
+
+`createSingleEntryResource` and `createKeyedResource` are just composed versions of `createResource`, if these are too constraining for your use case, try `createResource` directly, it likely will better suit your needs.
