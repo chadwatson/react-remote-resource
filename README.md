@@ -588,4 +588,4 @@ const useUsersPosts = id => {
 
 ### Last Note
 
-`createSingleEntryResource` and `createKeyedResource` are composed versions of `createResource`, if they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
+`createSingleEntryResource` and `createKeyedResource` are composed versions of `createResource`. If they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
