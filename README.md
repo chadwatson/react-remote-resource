@@ -467,7 +467,7 @@ const User = ({id}) => {
 }
 
 const UserList = ({ ids }) => {
-  return ids.map(id => <User key={id} id={id} />
+  return ids.map(id => <User key={id} id={id} />);
 }
 ```
 
