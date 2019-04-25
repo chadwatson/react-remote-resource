@@ -525,7 +525,7 @@ const load = (account_rep_id) => fetch(`/api/clients/${account_rep_id}`);
 
 const clientsResource = createKeyedResource(id => id, load);
 
-const ClientList = ({account_rep_id}) => {
+const ClientList = ({ account_rep_id }) => {
   const [clients] = clientsResource.useEntry(account_rep_id);
 
   return ...;
