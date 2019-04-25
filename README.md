@@ -466,7 +466,7 @@ const User = ({id}) => {
   return ...;
 }
 
-const UserList = ({ids}) => {
+const UserList = ({ ids }) => {
   return ids.map(id => <User key={id} id={id} />
 }
 ```
