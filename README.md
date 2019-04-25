@@ -457,7 +457,7 @@ const AboutMe = () => {
 The app needs to make individual requests to the same users API and store the results independently. `createKeyedResource` would be the better choice.
 
 ```jsx
-const load = (id) => fetch(`/api/users/${id}`);
+const load = id => fetch(`/api/users/${id}`);
 const usersResource = createKeyedResource(id => id, load);
 
 const User = ({id}) => {
