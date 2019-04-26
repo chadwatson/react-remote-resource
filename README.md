@@ -427,7 +427,7 @@ The `postsResource` above, will store the value as a single entry in the resourc
 
 > ### Does my data need to be in a specific shape to use `react-remote-resource`?
 
-No! `react-remote-resource` aims to h Whatever value resolves from the promise of the `load`, regardless of shape or type, will be stored as an entry.
+No, `react-remote-resource` aims to organize your apis regardless of shape or type! Whatever resolves from the promise of the `load` function will be stored as the entry.
 
 &nbsp;
 
