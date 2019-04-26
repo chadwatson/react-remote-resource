@@ -26,7 +26,7 @@ This provides a straightforward and consistent way to use data from remote resou
 
 ### Installation
 
-```
+```bash
 npm install react-remote-resource --save
 // or
 yarn add react-remote-resource
@@ -183,7 +183,7 @@ Creates a resource that organizes its entries into an object literal. It takes a
 
 ```javascript
 const myResource = createKeyedResource(
-  // A function that takes all of the arguments that are supplied to the loader and uses the returned value as the key
+  // A function that takes all of the arguments that are supplied to the loader, from resource.useEntry, and uses the returned value as the key
   (authToken, userId) => userId,
 
   // The loader function that fetches data. Should return a promise.
@@ -397,3 +397,221 @@ const UserForm = () => (
   </div>
 );
 ```
+
+&nbsp;
+
+---
+
+&nbsp;
+
+## FAQ
+
+> ### What are resource entries and how are they created?
+
+An entry is data that is stored in the `resource` when the promise of the `load` finally resolves.
+
+Each [Resource Creator](https://github.com/chadwatson/react-remote-resource#resource-creators) determines how the entries are organized and stored. As an example, `createSingleEntryResource` creates a `resource` that only has a single entry from an api.
+
+```javascript
+const postsResource = createSingleEntryResource(() =>
+  fetch("/api/posts")
+    .then(normalizePosts)
+    .then(filterToCurrentUser)
+    .then(...)
+);
+```
+
+The `postsResource` above, will store the value as a single entry in the resource once all the `.then` statements complete.
+
+&nbsp;
+
+> ### Does my data need to be in a specific shape to use `react-remote-resource`?
+
+No, `react-remote-resource` aims to organize your apis regardless of shape or type! Whatever resolves from the promise of the `load` function will be stored as the entry.
+
+&nbsp;
+
+> ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
+
+The the main difference between `createKeyedResource` and `createSingleEntryResource` is how the created `resource` stores its entries. Internally, every `resource` organizes the data it receives from the completed load function into entries. A `resource`'s main concern is how the data in the entries should be available to your app, not necessarily how the external api is structured or called.
+
+- `createKeyedResource` creates a resource with multiple entries that are organized by key. [See the first parameter on how entries are keyed](https://github.com/chadwatson/react-remote-resource#createkeyedresource).
+
+- `createSingleEntryResource` creates a resource with only a single entry. All data, regardless of the structure, will be stored in only one entry.
+
+The following example scenerios show when `createKeyedResource` and `createSingleEntryResource` are best suited:
+
+#### Example Users API:
+
+Assuming You have a users api that takes an id and returns user information:
+
+```javascript
+/*
+  
+  /api/users/:id
+
+  Example Response:
+  {
+    name: "name",
+    id: {userId},
+    ...
+  }
+
+*/
+```
+
+**Scenerio 1:**
+
+The app only needs the current user's information. Since the app only needs one entry from the api (the current user's information and no others), `createSingleEntryResource` would work well.
+
+```jsx
+const load = id => fetch(`/api/users/${id}`);
+const userResource = createSingleEntryResource(load);
+
+const AboutMe = () => {
+  const [user] = userResource.useEntry(12345);
+  return ...;
+};
+```
+
+**Scenerio 2**
+
+The app needs to make individual requests to the same users API and store the results independently. `createKeyedResource` would be the better choice.
+
+```jsx
+const load = id => fetch(`/api/users/${id}`);
+const usersResource = createKeyedResource(id => id, load);
+
+const User = ({ id }) => {
+  const [user] = usersResource.useEntry(id);
+
+  return ...;
+}
+
+const UserList = ({ ids }) => {
+  return ids.map(id => <User key={id} id={id} />);
+}
+```
+
+### Example Clients API:
+
+Assuming you have a clients API that takes an `account_rep_id` and returns a list of clients for that specific account rep:
+
+```javascript
+/*
+
+/api/clients/:account_rep_id
+
+[
+  {
+    id: 123454,
+    ...
+  },
+  {
+    id: 508923,
+    ...
+  },
+  {
+    id: 14,
+    ...
+  },
+  {
+    id: 995,
+    ...
+  }
+]
+
+*/
+```
+
+**Scenerio 1:**
+
+The app only needs the current account rep's list: `createSingleEntryResource` would work well.
+
+```jsx
+const load = (id) => fetch(`/api/clients/${id}`);
+const clientsResource = createSingleEntryResource(load);
+
+const ClientList = () => {
+  const [clients] = clientsResource.useEntry(12345);
+  return ...;
+};
+```
+
+**Scenerio 2:**
+
+The app needs multiple account rep's client list: `createKeyedResource` is better suited for this purpose.
+
+```jsx
+const load = account_rep_id => fetch(`/api/clients/${account_rep_id}`);
+const clientsResource = createKeyedResource(id => id, load);
+
+const ClientList = ({ account_rep_id }) => {
+  const [clients] = clientsResource.useEntry(account_rep_id);
+  return ...;
+}
+```
+
+### Example Posts API:
+
+You have a posts api that takes no parameters and returns a list of posts organized by post id:
+
+```javascript
+/*
+
+/api/posts
+
+[
+  {
+    id: 882,
+    userId: 5
+  },
+  {
+    id: 622,
+    userId: 10
+  },
+  {
+    id: 622,
+    userId: 10
+  },
+  {
+    id: 1,
+    userId: 1
+  },
+  {
+    id: 102,
+    userId: 10
+  }
+]
+
+*/
+```
+
+The app itself needs the data to be organized by userId.
+
+`createSingleEntryResource` could be utilized and composed for this:
+
+```jsx
+const postsResource = createSingleEntryResource(() =>
+  fetch("/api/posts").then(posts =>
+    posts.reduce(
+      (acc, post) => ({
+        ...acc,
+        [post.userId]: acc[post.userId] ? [...acc[post.userId], post] : [post]
+      }),
+      {}
+    )
+  )
+);
+
+const useUsersPosts = id => {
+  const [allPosts] = postsResources.useEntry();
+  return allPosts[id] || [];
+};
+```
+
+### Last Note
+
+`createSingleEntryResource` and `createKeyedResource` are composed versions of `createResource`. If they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
+
+&nbsp;
