@@ -406,6 +406,8 @@ const UserForm = () => (
 
 ## FAQ
 
+&nbsp;
+
 > ### What are resource entries and how are they created?
 
 An entry is data that is stored in the `resource` when the promise of the `load` finally resolves.
@@ -424,11 +426,13 @@ const postsResource = createSingleEntryResource(() =>
 The `postsResource` above, will store the value as a single entry in the resource once all the `.then` statements complete.
 
 &nbsp;
+&nbsp;
 
 > ### Does my data need to be in a specific shape to use `react-remote-resource`?
 
 No, `react-remote-resource` aims to organize your apis regardless of shape or type! Whatever resolves from the promise of the `load` function will be stored as the entry.
 
+&nbsp;
 &nbsp;
 
 > ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
