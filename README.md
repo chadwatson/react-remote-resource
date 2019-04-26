@@ -406,6 +406,31 @@ const UserForm = () => (
 
 ## FAQ
 
+> ### What are resource entries and how are they created?
+
+An entry is data that is stored in the `resource` when the promise of the `load` finally resolves.
+
+Each [Resource Creator](https://github.com/chadwatson/react-remote-resource#resource-creators) determines how the entries are organized and stored. As an example, `createSingleEntryResource` creates a `resource` that only has a single entry from an api.
+
+```javascript
+const postsResource = createSingleEntryResource(() =>
+  fetch("/api/posts")
+    .then(normalizePosts)
+    .then(filterToCurrentUser)
+    .then(...)
+);
+```
+
+The `postsResource` above, will store the value as a single entry in the resource once all the `.then` statements complete.
+
+&nbsp;
+
+> ### Does my data need to be in a specific shape to use `react-remote-resource`?
+
+No! `react-remote-resource` aims to h Whatever value resolves from the promise of the `load`, regardless of shape or type, will be stored as an entry.
+
+&nbsp;
+
 > ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
 
 The the main difference between `createKeyedResource` and `createSingleEntryResource` is how the created `resource` stores its entries. Internally, every `resource` organizes the data it receives from the completed load function into entries. A `resource`'s main concern is how the data in the entries should be available to your app, not necessarily how the external api is structured or called.
@@ -588,3 +613,5 @@ const useUsersPosts = id => {
 ### Last Note
 
 `createSingleEntryResource` and `createKeyedResource` are composed versions of `createResource`. If they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
+
+&nbsp;
