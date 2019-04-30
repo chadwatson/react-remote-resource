@@ -1,6 +1,6 @@
 {
   "name": "react-remote-resource",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Intuitive remote data management in React",
   "files": [
     "dist"
