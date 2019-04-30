@@ -163,6 +163,31 @@ var createSingleEntryResource = function createSingleEntryResource(loader, entri
   }, loader, entriesExpireAfter);
 };
 
+var persistResource = function persistResource(getInitialState, persistState, resource) {
+  var loader = null;
+  return _extends({}, resource, {
+    useEntry: function useEntry() {
+      var resourceState = resource.getState();
+
+      if (resourceState === undefined) {
+        loader = getInitialState().then(resource.setState).then(function () {
+          return resource.subscribe(function () {
+            persistState(resource.getState());
+          });
+        })["finally"](function () {
+          loader = null;
+        });
+      }
+
+      if (loader) {
+        throw loader;
+      }
+
+      return resource.useEntry.apply(resource, arguments);
+    }
+  });
+};
+
 var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   var children = _ref.children,
       _ref$onLoadError = _ref.onLoadError,
@@ -255,5 +280,6 @@ exports.RemoteResourceBoundary = RemoteResourceBoundary;
 exports.createKeyedResource = createKeyedResource;
 exports.createResource = createResource;
 exports.createSingleEntryResource = createSingleEntryResource;
+exports.persistResource = persistResource;
 exports.useAutoSave = useAutoSave;
 exports.useSuspense = useSuspense;
