@@ -141,6 +141,29 @@ const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) =>
 
 const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, entriesExpireAfter);
 
+const persistResource = (getInitialState, persistState, resource) => {
+  let loader = null;
+  return _extends({}, resource, {
+    useEntry: function useEntry() {
+      const resourceState = resource.getState();
+
+      if (resourceState === undefined) {
+        loader = getInitialState().then(resource.setState).then(() => resource.subscribe(() => {
+          persistState(resource.getState());
+        })).finally(() => {
+          loader = null;
+        });
+      }
+
+      if (loader) {
+        throw loader;
+      }
+
+      return resource.useEntry(...arguments);
+    }
+  });
+};
+
 const RemoteResourceBoundary = (_ref) => {
   let children = _ref.children,
       _ref$onLoadError = _ref.onLoadError,
@@ -217,4 +240,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSingleEntryResource, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSingleEntryResource, persistResource, useAutoSave, useSuspense };
