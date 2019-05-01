@@ -1,5 +1,5 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curryN, curry } from 'ramda';
+import { curryN, complement, isNil, curry } from 'ramda';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
@@ -31,7 +31,11 @@ const Context = createContext({
   registerError: () => {}
 });
 
-const createResource = curryN(3, function (entryGetter, entrySetter, loader, entriesExpireAfter) {
+const createResource = curryN(3, function (selectState, setState, loader, hasState, entriesExpireAfter) {
+  if (hasState === void 0) {
+    hasState = complement(isNil);
+  }
+
   if (entriesExpireAfter === void 0) {
     entriesExpireAfter = Infinity;
   }
@@ -50,7 +54,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
     });
   };
 
-  const setEntryState = curry((args, state) => setResourceState(entrySetter(getResourceState(), args, state)));
+  const setEntryState = curry((args, state) => setResourceState(setState(getResourceState(), args, state)));
 
   const subscribe = onChange => {
     let currentState = getResourceState();
@@ -76,7 +80,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
 
       return loader(...args).then(setEntryState(args));
     },
-    useEntry: function useEntry() {
+    useState: function useState$1() {
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
         args[_key2] = arguments[_key2];
       }
@@ -85,9 +89,9 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
       renderCount.current += 1;
       const resourceState = getResourceState();
 
-      const _useState = useState(entryGetter(resourceState, args)),
-            state = _useState[0],
-            setState = _useState[1];
+      const _useState2 = useState(selectState(resourceState, args)),
+            state = _useState2[0],
+            setState = _useState2[1];
 
       const _useContext = useContext(Context),
             registerError = _useContext.registerError;
@@ -99,7 +103,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
         /* istanbul ignore else */
 
         if (nextState !== state) {
-          setState(entryGetter(nextState, args));
+          setState(selectState(nextState, args));
         }
       }), [state]);
 
@@ -109,7 +113,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
 
       const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
 
-      if (entryGetter(resourceState, args) === undefined || entryIsExpired && renderCount.current === 1) {
+      if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
           pendingLoaders.delete(entryId);
           entriesLastUpdatedById.set(entryId, Date.now());
@@ -137,14 +141,14 @@ const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) =>
   return _extends({}, resourceState, {
     [createKey(...args)]: data
   });
-}, loader, entriesExpireAfter));
+}, loader, state => state !== undefined, entriesExpireAfter));
 
-const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, entriesExpireAfter);
+const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, state => state !== undefined, entriesExpireAfter);
 
 const persistResource = (getInitialState, persistState, resource) => {
   let loader = null;
   return _extends({}, resource, {
-    useEntry: function useEntry() {
+    useState: function useState() {
       const resourceState = resource.getState();
 
       if (resourceState === undefined) {
@@ -159,7 +163,7 @@ const persistResource = (getInitialState, persistState, resource) => {
         throw loader;
       }
 
-      return resource.useEntry(...arguments);
+      return resource.useState(...arguments);
     }
   });
 };

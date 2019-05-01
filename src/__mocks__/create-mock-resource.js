@@ -1,22 +1,24 @@
 import createResource from "../create-resource";
 
 export const createMockResource = (
-  getter,
-  setter,
+  selectState,
+  setState,
   loader,
+  hasState,
   entriesExpireAfter
 ) => {
   const spies = {
-    getter: jest.fn().mockImplementation(getter),
-    setter: jest.fn().mockImplementation(setter),
+    selectState: jest.fn().mockImplementation(selectState),
+    setState: jest.fn().mockImplementation(setState),
     loader: jest.fn().mockImplementation(loader)
   };
 
   return [
     createResource(
-      spies.getter,
-      spies.setter,
+      spies.selectState,
+      spies.setState,
       spies.loader,
+      hasState,
       entriesExpireAfter
     ),
     spies

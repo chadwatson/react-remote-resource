@@ -14,7 +14,7 @@ Intuitive remote data management in React
 
 #### Lifecycle
 
-A resource is meant to be used inside of React components using the `useEntry` hook attached to the resource. This hook will check against an internal cache for a valid data entry. If the `resource` finds a valid entry, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary` (using `Suspense` under the hood) will catch the Promise from the `load` function and render the `fallback` until all outstanding Promises resolve. If any Promise rejects, the `RemoteResourceBoundary` will render the required `renderError` prop and `onLoadError` will be called, if provided. Otherwise `children` will be rendered.
+A resource is meant to be used inside of React components using the `useState` hook attached to the resource. This hook will check against an internal cache for valid state. If the `resource` finds valid state, it will return the data. Otherwise the `load` function, which returns a Promise, will be invoked and thrown. The nearest `RemoteResourceBoundary` (using `Suspense` under the hood) will catch the Promise from the `load` function and render the `fallback` until all outstanding Promises resolve. If any Promise rejects, the `RemoteResourceBoundary` will render the required `renderError` prop and `onLoadError` will be called, if provided. Otherwise `children` will be rendered.
 
 This provides a straightforward and consistent way to use data from remote resources throughout your app without over-fetching, or the headache and boilerplate of Redux or some other data management library.
 
@@ -38,23 +38,22 @@ yarn add react-remote-resource
 import {
   createSingleEntryResource,
   createKeyedResource,
-  useEntry,
-  RemoteResourceBoundary,
+  RemoteResourceBoundary
 } from "react-remote-resource";
 
-const userResource = createSingleEntryResource(
-  userId => fetchJson(`/api/users/${userId}`
+const userResource = createSingleEntryResource(userId =>
+  fetch(`/api/users/${userId}`).then(res => res.json())
 );
 
 const tweetsResource = createKeyedResource(
   userId => userId,
-  userId => fetchJson(`/api/users/${userId}/tweets`),
-  10000,
+  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json()),
+  10000
 );
 
 const UserInfo = ({ userId }) => {
-  const [user] = userResource.useEntry(userId);
-  const [tweets] = tweetsResource.useEntry(userId);
+  const [user] = userResource.useState(userId);
+  const [tweets] = tweetsResource.useState(userId);
 
   return (
     <div>
@@ -68,11 +67,13 @@ const UserInfo = ({ userId }) => {
 };
 
 const Tweets = ({ userId }) => {
-  const [tweets] = tweetsResource.useEntry(userId);
+  const [tweets] = tweetsResource.useState(userId);
 
   return (
     <>
-      <button type="button" onClick={() => tweetsResource.refresh(userId)}>Refresh</button>
+      <button type="button" onClick={() => tweetsResource.refresh(userId)}>
+        Refresh
+      </button>
       <ul>
         {tweets.map(tweet => (
           <li key={tweet.id}>
@@ -129,8 +130,9 @@ type Resource<A> = {
   // Allows for subscribing to resource state changes. Basically a wrapper around store.subscribe.
   subscribe: (() => void) => void,
 
-  // A react hook that allows you to use a resource entry's state in the same way that you would use React's useState
-  useEntry: <A>(...args: Array<any>) => [A, (A | A => A) => void]
+  // A react hook that allows you to use the resource's state in the same way that you would use React's useState.
+  // The state that gets returned will be the result of calling the getter function with the provided arguments.
+  useState: <A>(...args: Array<any>) => [A, (A | A => A) => void]
 };
 ```
 
@@ -140,10 +142,10 @@ Creates a new resource.
 
 ```javascript
 const productsResource = createResource(
-  // A function that gets an entry from the state.
+  // A function that selects some substate from the resource state
   (currentState = {}, [id]) => currentState[id],
 
-  // A function that sets an entry in the state.
+  // A function that sets the state
   (currentState = {}, [id], product) => ({
     ...currentState,
     [id]: product
@@ -151,6 +153,9 @@ const productsResource = createResource(
 
   // The loader function that fetches data. Should return a promise.
   id => fetch(`/api/products/${id}`).then(response => response.json()),
+
+  // Optional: A function that tests if the state is not empty. If this returns `false` the loader will be called.
+  state => state !== undefined,
 
   // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
   10 * 60 * 1000
@@ -183,7 +188,7 @@ Creates a resource that organizes its entries into an object literal. It takes a
 
 ```javascript
 const myResource = createKeyedResource(
-  // A function that takes all of the arguments that are supplied to the loader, from resource.useEntry, and uses the returned value as the key
+  // A function that takes all of the arguments that are supplied to the loader, from resource.useState, and uses the returned value as the key
   (authToken, userId) => userId,
 
   // The loader function that fetches data. Should return a promise.
@@ -267,59 +272,150 @@ const UserProfile = ({ userId }) => (
 
 ## React Hooks
 
-### `resource.useEntry`
+### `resource.useState`
 
-A React hook that takes a resource and an optional array of arguments and returns a tuple, very much like React's `useState`. The second item in the tuple works like `useState` in that it sets the in-memory state of the resource. Unlike `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
+A React hook that takes an optional array of arguments and returns a tuple, very much like React's `useState`. Unlike React's `useState`, however, the state is not local to the component. Any other components that are using the state of that same resource get updated immediately with the new state!
 
-Under the hood `react-remote-resource` implements a redux store. Every resource get its own state in the store.
+```javascript
+const [post, setPost] = postsResource.useState(postId);
+```
+
+Let's look at an example to understand how this works.
+
+Take the following resource:
+
+```javascript
+const tweetsResource = createKeyedResource(
+  userId => userId,
+  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json())
+);
+```
+
+This resource can fetch and store tweets for multiple users. Once it has fetched the tweets for a user it won't re-fetch them. Let's create a component that will render a user's tweets.
 
 ```jsx
-import { createRemoteResouce, useAutoSave } from "react-remote-resource";
-import { savePost, postsResource } from "../resources/posts";
-
-const PostForm = ({ postId }) => {
-  const [post, setPost] = postsResource.useEntry(postId);
-
-  useAutoSave(post, savePost);
+const UserTweets = ({ userId }) => {
+  const [tweets] = tweetsResource.useState(userId);
 
   return (
-    <form
-      onSubmit={e => {
-        e.preventDefault();
-        savePost(post);
-      }}
-    >
-      <label>
-        Title
-        <input
-          type="text"
-          value={post.title}
-          onChange={({ target }) => {
-            setPost({ ...post, title: target.value });
-          }}
-        />
-      </label>
-      <label>
-        Content
-        <textarea
-          value={post.title}
-          onChange={({ target }) => {
-            setPost({ ...post, content: target.value });
-          }}
-        />
-      </label>
-      <button>Save</button>
-    </form>
+    <ul>
+      {tweets.map(tweet => (
+        <li key={tweet.id}>
+          <article>
+            <p>{tweet.message}</p>
+            <footer>
+              <small>{tweet.date}</small>
+            </footer>
+          </article>
+        </li>
+      ))}
+    </ul>
   );
 };
 ```
 
-This hook is very powerful. Let's walk through what happens when it is used:
+When `UserTweets` renders, the `useState` hook will take the given `userId`, check if tweets have been fetched for this user, and if they have they will be returned as the first item in the tuple. If they haven't then the loader function will be called and the returned promise will be thrown, which will be caught by the nearest `RemoteResourceBoundary`. Whatever data the promise resolves with will be set as the tweets for that user. Now that the data has been received for this user the component will re-render with the new data. If the component re-renders after this the loader function will not be called since the tweets have already been fetched. We will always get back the latest state.
 
-1. The getter function (the first argument given to `createResource`) is used to get the entry out of the resource state.
-2. The predicate (the third argument given to `createResource`) is used to test whether or not the entry is valid. If not the loader (the fourth argument) will be invoked and the promise thrown.
-3. If the promise rejects, the closest `RemoteResourceBoundary` will handle the error. If the promise resolves, the setter function (the second argument give to `createResource`) is used to set the resolved data in the resource state.
-4. You can set the entry state using the second item in the tuple. Resource state changes, unlike component based `useState`, will persist in memory. If a component unmounts and remounts the state will be the same as when you left it.
+Of course, we are not limited to reading state. Similar to React's `useState` we can update the state of our resource as well. Let's look at another example to show why this is useful.
+
+```javascript
+const profileResource = createSingleEntryResource(authToken =>
+  fetch("/my_profile", {
+    headers: {
+      Authorization: authToken
+    }
+  }).then(res => res.json())
+);
+```
+
+This resource will fetch and store the profile data for the logged-in user. Now let's create a component that allows the user to edit their profile.
+
+```jsx
+import { useAutoSave } from "react-remote-resource";
+
+const saveProfile = profile =>
+  fetch("/my_profile", {
+    method: "PUT",
+    body: JSON.stringify(profile)
+  });
+
+const ProfileForm = ({ authToken }) => {
+  const [profile, setProfile] = profileResource.useState(authToken);
+
+  useAutoSave(profile, saveProfile);
+
+  return (
+    <section>
+      <label>
+        First Name
+        <input
+          type="text"
+          value={profile.firstName}
+          onChange={({ target }) =>
+            setProfile({ ...profile, firstName: target.value })
+          }
+        />
+      </label>
+      <label>
+        Last Name
+        <input
+          type="text"
+          value={profile.lastName}
+          onChange={({ target }) =>
+            setProfile({ ...profile, lastName: target.value })
+          }
+        />
+      </label>
+      <label>
+        Email
+        <input
+          type="text"
+          value={profile.email}
+          onChange={({ target }) =>
+            setProfile({ ...profile, email: target.value })
+          }
+        />
+      </label>
+    </section>
+  );
+};
+```
+
+Notice that there's no save button! We're using an optimistic UI, where we update the local state immediately and then save it to our API after the fact. This can really help you remove friction for your users.
+
+**Pro Tip!**: Since `useState` is just a React hook, you can create custom hooks with it!
+
+```javascript
+const authTokenResource = createSingleEntryResource(
+  () =>
+    new Promise(resolve => resolve(localStorage.getItem("authToken") || ""))
+);
+
+const profileResource = createSingleEntryResource(authToken =>
+  fetch("/my_profile", {
+    headers: {
+      Authorization: authToken
+    }
+  }).then(res => res.json())
+);
+
+const useAuthToken = () => {
+  const [authToken] = authTokenResource.useState();
+  return authToken;
+};
+
+const useProfile = () =>
+  profileResource.useState(useAuthToken());
+
+const ProfileForm = () => {
+  // Now your components don't need to have any knowledge of your authToken
+  const [profile, setProfile] = useProfile();
+
+  return (
+    // ...
+  );
+};
+```
 
 &nbsp;
 
@@ -330,11 +426,7 @@ A React hook that takes a value, a save function, and an optional delay in milli
 This is useful for optimistic UIs where the state of the resource is the source of truth and we are confident that the save will succeed.
 
 ```jsx
-import {
-  createRemoteResouce,
-  useEntry,
-  useAutoSave
-} from "react-remote-resource";
+import { createRemoteResouce, useAutoSave } from "react-remote-resource";
 import { savePost, usePost } from "../resources/posts";
 
 const PostForm = ({ postId }) => {
@@ -451,7 +543,7 @@ Assuming You have a users api that takes an id and returns user information:
 
 ```javascript
 /*
-  
+
   /api/users/:id
 
   Example Response:
@@ -473,7 +565,7 @@ const load = id => fetch(`/api/users/${id}`);
 const userResource = createSingleEntryResource(load);
 
 const AboutMe = () => {
-  const [user] = userResource.useEntry(12345);
+  const [user] = userResource.useState(12345);
   return ...;
 };
 ```
@@ -487,7 +579,7 @@ const load = id => fetch(`/api/users/${id}`);
 const usersResource = createKeyedResource(id => id, load);
 
 const User = ({ id }) => {
-  const [user] = usersResource.useEntry(id);
+  const [user] = usersResource.useState(id);
 
   return ...;
 }
@@ -537,7 +629,7 @@ const load = (id) => fetch(`/api/clients/${id}`);
 const clientsResource = createSingleEntryResource(load);
 
 const ClientList = () => {
-  const [clients] = clientsResource.useEntry(12345);
+  const [clients] = clientsResource.useState(12345);
   return ...;
 };
 ```
@@ -551,7 +643,7 @@ const load = account_rep_id => fetch(`/api/clients/${account_rep_id}`);
 const clientsResource = createKeyedResource(id => id, load);
 
 const ClientList = ({ account_rep_id }) => {
-  const [clients] = clientsResource.useEntry(account_rep_id);
+  const [clients] = clientsResource.useState(account_rep_id);
   return ...;
 }
 ```
@@ -609,7 +701,7 @@ const postsResource = createSingleEntryResource(() =>
 );
 
 const useUsersPosts = id => {
-  const [allPosts] = postsResources.useEntry();
+  const [allPosts] = postsResources.useState();
   return allPosts[id] || [];
 };
 ```

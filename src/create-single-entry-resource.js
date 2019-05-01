@@ -5,6 +5,7 @@ const createSingleEntryResource = (loader, entriesExpireAfter) =>
     resourceState => resourceState,
     (resourceState, args, data) => data,
     loader,
+    state => state !== undefined,
     entriesExpireAfter
   );
 

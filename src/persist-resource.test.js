@@ -11,7 +11,7 @@ import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 // ---------------------------
 
 const MockResourceConsumer = ({ resource, index }) => {
-  const [entry] = resource.useEntry(index);
+  const [entry] = resource.useState(index);
 
   return entry;
 };

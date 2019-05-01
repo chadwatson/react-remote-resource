@@ -38,7 +38,11 @@ var Context = React.createContext({
   registerError: function registerError() {}
 });
 
-var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader, entriesExpireAfter) {
+var createResource = ramda.curryN(3, function (selectState, setState, loader, hasState, entriesExpireAfter) {
+  if (hasState === void 0) {
+    hasState = ramda.complement(ramda.isNil);
+  }
+
   if (entriesExpireAfter === void 0) {
     entriesExpireAfter = Infinity;
   }
@@ -60,7 +64,7 @@ var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader,
   };
 
   var setEntryState = ramda.curry(function (args, state) {
-    return setResourceState(entrySetter(getResourceState(), args, state));
+    return setResourceState(setState(getResourceState(), args, state));
   });
 
   var subscribe = function subscribe(onChange) {
@@ -87,7 +91,7 @@ var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader,
 
       return loader.apply(void 0, args).then(setEntryState(args));
     },
-    useEntry: function useEntry() {
+    useState: function useState() {
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
         args[_key2] = arguments[_key2];
       }
@@ -96,9 +100,9 @@ var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader,
       renderCount.current += 1;
       var resourceState = getResourceState();
 
-      var _useState = React.useState(entryGetter(resourceState, args)),
-          state = _useState[0],
-          setState = _useState[1];
+      var _useState2 = React.useState(selectState(resourceState, args)),
+          state = _useState2[0],
+          setState = _useState2[1];
 
       var _useContext = React.useContext(Context),
           registerError = _useContext.registerError;
@@ -111,7 +115,7 @@ var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader,
             /* istanbul ignore else */
 
             if (nextState !== state) {
-              setState(entryGetter(nextState, args));
+              setState(selectState(nextState, args));
             }
           })
         );
@@ -123,7 +127,7 @@ var createResource = ramda.curryN(3, function (entryGetter, entrySetter, loader,
 
       var entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
 
-      if (entryGetter(resourceState, args) === undefined || entryIsExpired && renderCount.current === 1) {
+      if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
         pendingLoaders.set(entryId, loader.apply(void 0, args).then(setEntryState(args))["catch"](registerError)["finally"](function () {
           pendingLoaders["delete"](entryId);
           entriesLastUpdatedById.set(entryId, Date.now());
@@ -152,7 +156,9 @@ var createKeyedResource = ramda.curryN(2, function (createKey, loader, entriesEx
     }
 
     return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
-  }, loader, entriesExpireAfter);
+  }, loader, function (state) {
+    return state !== undefined;
+  }, entriesExpireAfter);
 });
 
 var createSingleEntryResource = function createSingleEntryResource(loader, entriesExpireAfter) {
@@ -160,13 +166,15 @@ var createSingleEntryResource = function createSingleEntryResource(loader, entri
     return resourceState;
   }, function (resourceState, args, data) {
     return data;
-  }, loader, entriesExpireAfter);
+  }, loader, function (state) {
+    return state !== undefined;
+  }, entriesExpireAfter);
 };
 
 var persistResource = function persistResource(getInitialState, persistState, resource) {
   var loader = null;
   return _extends({}, resource, {
-    useEntry: function useEntry() {
+    useState: function useState() {
       var resourceState = resource.getState();
 
       if (resourceState === undefined) {
@@ -183,7 +191,7 @@ var persistResource = function persistResource(getInitialState, persistState, re
         throw loader;
       }
 
-      return resource.useEntry.apply(resource, arguments);
+      return resource.useState.apply(resource, arguments);
     }
   });
 };

@@ -8,7 +8,7 @@ import { createMockResource } from "./__mocks__/create-mock-resource";
 // ---------------------------
 
 const MockResourceConsumer = ({ resource }) => {
-  const [entry] = resource.useEntry();
+  const [entry] = resource.useState();
 
   return entry;
 };

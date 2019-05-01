@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import uuid from "uuid/v1";
-import { curry, curryN } from "ramda";
+import { curry, curryN, complement, isNil } from "ramda";
 import store, { selectResource, RECEIVE_STATE } from "./store";
 import Context from "./Context";
 
 const createResource = curryN(
   3,
-  (entryGetter, entrySetter, loader, entriesExpireAfter = Infinity) => {
+  (
+    selectState,
+    setState,
+    loader,
+    hasState = complement(isNil),
+    entriesExpireAfter = Infinity
+  ) => {
     const resourceId = uuid();
 
     const getResourceState = () =>
@@ -24,7 +30,7 @@ const createResource = curryN(
     };
 
     const setEntryState = curry((args, state) =>
-      setResourceState(entrySetter(getResourceState(), args, state))
+      setResourceState(setState(getResourceState(), args, state))
     );
 
     const subscribe = onChange => {
@@ -45,12 +51,12 @@ const createResource = curryN(
       getState: getResourceState,
       setState: setResourceState,
       refresh: (...args) => loader(...args).then(setEntryState(args)),
-      useEntry: (...args) => {
+      useState: (...args) => {
         const renderCount = useRef(0);
         renderCount.current += 1;
 
         const resourceState = getResourceState();
-        const [state, setState] = useState(entryGetter(resourceState, args));
+        const [state, setState] = useState(selectState(resourceState, args));
         const { registerError } = useContext(Context);
         const entryId = args.length ? args.join("-") : "INDEX";
 
@@ -61,7 +67,7 @@ const createResource = curryN(
               const nextState = getResourceState();
               /* istanbul ignore else */
               if (nextState !== state) {
-                setState(entryGetter(nextState, args));
+                setState(selectState(nextState, args));
               }
             }),
           [state]
@@ -76,7 +82,7 @@ const createResource = curryN(
           Date.now();
 
         if (
-          entryGetter(resourceState, args) === undefined ||
+          !hasState(selectState(resourceState, args)) ||
           (entryIsExpired && renderCount.current === 1)
         ) {
           pendingLoaders.set(

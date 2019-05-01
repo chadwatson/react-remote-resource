@@ -21,7 +21,7 @@ describe("createSingleEntryResource", () => {
     );
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -46,7 +46,7 @@ describe("createSingleEntryResource", () => {
     );
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };

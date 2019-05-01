@@ -28,7 +28,7 @@ describe("createKeyedResource", () => {
     );
 
     const Example = ({ index }) => {
-      const [entry] = resource.useEntry(index);
+      const [entry] = resource.useState(index);
 
       return entry;
     };
@@ -59,7 +59,7 @@ describe("createKeyedResource", () => {
     );
 
     const Example = ({ index }) => {
-      const [entry] = resource.useEntry(index);
+      const [entry] = resource.useState(index);
 
       return entry;
     };

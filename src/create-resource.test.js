@@ -5,9 +5,10 @@ import { createMockResource } from "./__mocks__/create-mock-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 
-const getter = jest.fn();
-const setter = jest.fn();
+const selectState = jest.fn();
+const setState = jest.fn();
 const loader = jest.fn();
+const hasState = jest.fn();
 
 // ---------------------------
 // Tests
@@ -22,20 +23,28 @@ describe("createResource", () => {
     expect(typeof createResource).toBe("function");
   });
 
-  it("returns a function when passed a getter", () => {
-    expect(typeof createResource(getter)).toBe("function");
+  it("returns a function when passed a selectState", () => {
+    expect(typeof createResource(selectState)).toBe("function");
   });
 
-  it("returns a function when passed a getter and setter", () => {
-    expect(typeof createResource(getter, setter)).toBe("function");
+  it("returns a function when passed a selectState and setState", () => {
+    expect(typeof createResource(selectState, setState)).toBe("function");
   });
 
-  it("returns a resource when passed a getter, setter, and loader", () => {
-    assertResourceShape(createResource(getter, setter, loader));
+  it("returns a resource when passed a selectState, setState, and loader", () => {
+    assertResourceShape(createResource(selectState, setState, loader));
   });
 
-  it("returns a resource when passed a getter, setter, loader, and entriesExpireAfter ", () => {
-    assertResourceShape(createResource(getter, setter, loader, 1));
+  it("returns a resource when passed a selectState, setState, loader, and hasState", () => {
+    assertResourceShape(
+      createResource(selectState, setState, loader, hasState)
+    );
+  });
+
+  it("returns a resource when passed a selectState, setState, loader, hasState, and entriesExpireAfter ", () => {
+    assertResourceShape(
+      createResource(selectState, setState, loader, hasState, 1)
+    );
   });
 
   // ---------------------------
@@ -109,7 +118,7 @@ describe("createResource", () => {
     );
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -135,7 +144,7 @@ describe("createResource", () => {
     );
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -156,7 +165,7 @@ describe("createResource", () => {
     await waitForElement(() => getByText("end result"));
   });
 
-  it("updates an entry when state changes (using state setter)", async () => {
+  it("updates an entry when state changes (using state setState)", async () => {
     const [resource] = createMockResource(
       value => value,
       (_, __, value) => value,
@@ -164,7 +173,7 @@ describe("createResource", () => {
     );
 
     const Example = () => {
-      const [entry, setEntry] = resource.useEntry();
+      const [entry, setEntry] = resource.useState();
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry("end result"), 1000);
@@ -199,7 +208,7 @@ describe("createResource", () => {
     );
 
     const Example = ({ index }) => {
-      const [entry, setEntry] = resource.useEntry(index);
+      const [entry, setEntry] = resource.useState(index);
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry(`${index}: finally`), 1000);
@@ -249,7 +258,7 @@ describe("createResource", () => {
     // ---------------------------
 
     const ExampleWithUpdates = ({ index }) => {
-      const [entry, setEntry] = resource.useEntry(index);
+      const [entry, setEntry] = resource.useState(index);
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry(`final value`), 1000);
@@ -260,7 +269,7 @@ describe("createResource", () => {
     };
 
     const ExampleStatic = ({ index }) => {
-      const [entry] = resource.useEntry(index);
+      const [entry] = resource.useState(index);
 
       return entry;
     };
@@ -274,7 +283,7 @@ describe("createResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <div data-testid="setter">
+        <div data-testid="setState">
           <ExampleWithUpdates index={0} />
         </div>
         <div data-testid="staticExample">
@@ -284,15 +293,15 @@ describe("createResource", () => {
     );
 
     await waitForElement(() => getByText("Loading..."));
-    const setter = await waitForElement(() => getByTestId("setter"));
-    expect(setter.textContent).toBe("loaded value");
+    const setState = await waitForElement(() => getByTestId("setState"));
+    expect(setState.textContent).toBe("loaded value");
 
     const staticExample = await waitForElement(() =>
       getByTestId("staticExample")
     );
     expect(staticExample.textContent).toBe("loaded value");
 
-    await wait(() => expect(setter.textContent).toBe("final value"));
+    await wait(() => expect(setState.textContent).toBe("final value"));
     await wait(() => expect(staticExample.textContent).toBe("final value"));
   });
 
@@ -312,13 +321,14 @@ describe("createResource", () => {
         count += 1;
         return Promise.resolve(count);
       },
+      undefined,
       100
     );
 
     // Component uses specific resource entry then renders current count
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -395,13 +405,14 @@ describe("createResource", () => {
         count += 1;
         return Promise.resolve(count);
       },
+      undefined,
       100
     );
 
     // Component uses specific resource entry then renders current count
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };

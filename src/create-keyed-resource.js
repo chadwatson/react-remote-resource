@@ -9,6 +9,7 @@ const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) =>
       [createKey(...args)]: data
     }),
     loader,
+    state => state !== undefined,
     entriesExpireAfter
   )
 );
