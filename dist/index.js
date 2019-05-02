@@ -7,6 +7,7 @@ import { Map as Map$1 } from 'immutable';
 import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
+const RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
 const initialRootState = Map$1({
   resourcesById: Map$1()
 });
@@ -15,6 +16,9 @@ const rootReducer = (state, action) => {
   switch (action.type) {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
+
+    case RESET_ALL_RESOURCES:
+      return state.update("resourcesById", resources => resources.clear());
 
     default:
       return state;
@@ -216,6 +220,10 @@ const RemoteResourceBoundary = (_ref) => {
   }, children)));
 };
 
+const resetAllResources = () => store.dispatch({
+  type: RESET_ALL_RESOURCES
+});
+
 const useAutoSave = function useAutoSave(value, save, delay) {
   if (delay === void 0) {
     delay = 1000;
@@ -262,4 +270,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, resetAllResources, useAutoSave, useSuspense };

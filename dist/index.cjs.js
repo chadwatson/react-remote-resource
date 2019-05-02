@@ -14,6 +14,7 @@ var immutable = require('immutable');
 var Maybe = _interopDefault(require('data.maybe'));
 
 var RECEIVE_STATE = "RECEIVE_STATE";
+var RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
 var initialRootState = immutable.Map({
   resourcesById: immutable.Map()
 });
@@ -22,6 +23,11 @@ var rootReducer = function rootReducer(state, action) {
   switch (action.type) {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
+
+    case RESET_ALL_RESOURCES:
+      return state.update("resourcesById", function (resources) {
+        return resources.clear();
+      });
 
     default:
       return state;
@@ -244,6 +250,12 @@ var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   }, children)));
 };
 
+var resetAllResources = function resetAllResources() {
+  return store.dispatch({
+    type: RESET_ALL_RESOURCES
+  });
+};
+
 var useAutoSave = function useAutoSave(value, save, delay) {
   if (delay === void 0) {
     delay = 1000;
@@ -303,5 +315,6 @@ exports.createKeyedResource = createKeyedResource;
 exports.createResource = createResource;
 exports.createSimpleResource = createSimpleResource;
 exports.persistResource = persistResource;
+exports.resetAllResources = resetAllResources;
 exports.useAutoSave = useAutoSave;
 exports.useSuspense = useSuspense;
