@@ -77,7 +77,7 @@ const createResource = ({
         (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
 
       if (
-        !hasState(selectState(resourceState, args)) ||
+        !hasState(selectState(resourceState, args), args) ||
         (entryIsExpired && renderCount.current === 1)
       ) {
         pendingLoaders.set(

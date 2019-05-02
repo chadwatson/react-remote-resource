@@ -457,4 +457,96 @@ describe("createResource", () => {
     // Load function completed and returned count
     await waitForElement(() => getByTextRemount("2"));
   });
+
+  it("refetches when a custom hasState function returns false", async () => {
+    const [resource] = createMockResource({
+      loader: keys =>
+        Promise.resolve(
+          keys.reduce((acc, key) => ({ ...acc, [key]: key }), {})
+        ),
+      selectState: (currentState = {}, [keys]) =>
+        keys.reduce(
+          (acc, key) =>
+            currentState[key] ? { ...acc, [key]: currentState[key] } : acc,
+          {}
+        ),
+      setState: (currentState = {}, [keys], additionalState) => ({
+        ...currentState,
+        ...additionalState
+      }),
+      hasState: (selectedState, [keys]) =>
+        keys.length === Object.keys(selectedState).length
+    });
+
+    const Example = ({ keys }) => {
+      const [state] = resource.useState(keys);
+
+      return (
+        <ul>
+          {Object.keys(state).map(key => (
+            <li key={key} data-testid={key}>
+              {state[key]}
+            </li>
+          ))}
+        </ul>
+      );
+    };
+
+    const { getByText, getByTestId, rerender } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example keys={["a", "b", "c"]} />
+      </RemoteResourceBoundary>
+    );
+
+    // Load function has fired and has thrown the promise
+    await waitForElement(() => getByText("Loading..."));
+
+    // Load function completed and rendered list
+    await Promise.all([
+      waitForElement(() => getByTestId("a")),
+      waitForElement(() => getByTestId("b")),
+      waitForElement(() => getByTestId("c"))
+    ]);
+
+    rerender(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example keys={["a", "b", "c"]} />
+      </RemoteResourceBoundary>
+    );
+
+    // The list is rendered without loading
+    await Promise.all([
+      waitForElement(() => getByTestId("a")),
+      waitForElement(() => getByTestId("b")),
+      waitForElement(() => getByTestId("c"))
+    ]);
+
+    const {
+      getByText: getByTextRemount,
+      getByTestId: getByTestIdRemount
+    } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example keys={["c", "d", "e"]} />
+      </RemoteResourceBoundary>
+    );
+
+    // Load function has fired and has thrown the promise
+    await waitForElement(() => getByTextRemount("Loading..."));
+
+    // Load function completed and rendered list
+    await Promise.all([
+      waitForElement(() => getByTestIdRemount("c")),
+      waitForElement(() => getByTestIdRemount("d")),
+      waitForElement(() => getByTestIdRemount("e"))
+    ]);
+  });
 });
