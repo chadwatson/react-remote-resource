@@ -1,7 +1,7 @@
 import { curryN } from "ramda";
 import createResource from "./create-resource";
 
-const createKeyedResource = curryN(2, (createKey, loader, expireAfter) =>
+const createKeyedResource = curryN(1, (createKey, loader) =>
   createResource({
     selectState: (resourceState = {}, args) =>
       resourceState[createKey(...args)],
@@ -9,8 +9,7 @@ const createKeyedResource = curryN(2, (createKey, loader, expireAfter) =>
       ...resourceState,
       [createKey(...args)]: data
     }),
-    loader,
-    expireAfter
+    loader
   })
 );
 

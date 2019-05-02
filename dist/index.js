@@ -1,5 +1,5 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curryN } from 'ramda';
+import { curryN, equals } from 'ramda';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
@@ -36,9 +36,7 @@ const createResource = (_ref) => {
       setState = _ref.setState,
       loader = _ref.loader,
       _ref$hasState = _ref.hasState,
-      hasState = _ref$hasState === void 0 ? value => value !== undefined : _ref$hasState,
-      _ref$expireAfter = _ref.expireAfter,
-      expireAfter = _ref$expireAfter === void 0 ? Infinity : _ref$expireAfter;
+      hasState = _ref$hasState === void 0 ? value => value !== undefined : _ref$hasState;
   const resourceId = uuid();
 
   const getResourceState = () => selectResource(store.getState(), {
@@ -68,7 +66,6 @@ const createResource = (_ref) => {
   };
 
   const pendingLoaders = new Map();
-  const entriesLastUpdatedById = new Map();
   return {
     getState: getResourceState,
     setState: setResourceState,
@@ -110,12 +107,9 @@ const createResource = (_ref) => {
         throw pendingLoaders.get(entryId);
       }
 
-      const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
-
-      if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
+      if (!hasState(selectState(resourceState, args), args)) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
           pendingLoaders.delete(entryId);
-          entriesLastUpdatedById.set(entryId, Date.now());
         }));
         throw pendingLoaders.get(entryId);
       }
@@ -126,7 +120,7 @@ const createResource = (_ref) => {
   };
 };
 
-const createKeyedResource = curryN(2, (createKey, loader, expireAfter) => createResource({
+const createKeyedResource = curryN(1, (createKey, loader) => createResource({
   selectState: function selectState(resourceState, args) {
     if (resourceState === void 0) {
       resourceState = {};
@@ -143,16 +137,31 @@ const createKeyedResource = curryN(2, (createKey, loader, expireAfter) => create
       [createKey(...args)]: data
     });
   },
-  loader,
-  expireAfter
+  loader
 }));
 
-const createSingleEntryResource = (loader, expireAfter) => createResource({
-  selectState: resourceState => resourceState,
-  setState: (resourceState, args, data) => data,
-  loader,
-  expireAfter
-});
+const createSimpleResource = loader => {
+  let currentArgs = [];
+  return createResource({
+    loader,
+    selectState: state => state,
+    setState: function setState(_, args, data) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      currentArgs = args;
+      return data;
+    },
+    hasState: function hasState(state, args) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      return state !== undefined && equals(args, currentArgs);
+    }
+  });
+};
 
 const persistResource = (getInitialState, persistState, resource) => {
   let loader = null;
@@ -253,4 +262,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSingleEntryResource, persistResource, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, useAutoSave, useSuspense };

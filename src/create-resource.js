@@ -7,8 +7,7 @@ const createResource = ({
   selectState,
   setState,
   loader,
-  hasState = value => value !== undefined,
-  expireAfter = Infinity
+  hasState = value => value !== undefined
 }) => {
   const resourceId = uuid();
 
@@ -41,7 +40,6 @@ const createResource = ({
   };
 
   const pendingLoaders = new Map();
-  const entriesLastUpdatedById = new Map();
 
   return {
     getState: getResourceState,
@@ -73,13 +71,7 @@ const createResource = ({
         throw pendingLoaders.get(entryId);
       }
 
-      const entryIsExpired =
-        (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
-
-      if (
-        !hasState(selectState(resourceState, args), args) ||
-        (entryIsExpired && renderCount.current === 1)
-      ) {
+      if (!hasState(selectState(resourceState, args), args)) {
         pendingLoaders.set(
           entryId,
           loader(...args)
@@ -87,7 +79,6 @@ const createResource = ({
             .catch(registerError)
             .finally(() => {
               pendingLoaders.delete(entryId);
-              entriesLastUpdatedById.set(entryId, Date.now());
             })
         );
         throw pendingLoaders.get(entryId);

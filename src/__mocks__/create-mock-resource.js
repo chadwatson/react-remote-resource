@@ -4,8 +4,7 @@ export const createMockResource = ({
   selectState,
   setState,
   loader,
-  hasState,
-  expireAfter
+  hasState
 }) => {
   const spies = {
     selectState: jest.fn().mockImplementation(selectState),
@@ -16,8 +15,7 @@ export const createMockResource = ({
   return [
     createResource({
       ...spies,
-      hasState,
-      expireAfter
+      hasState
     }),
     spies
   ];

@@ -45,9 +45,7 @@ var createResource = function createResource(_ref) {
       _ref$hasState = _ref.hasState,
       hasState = _ref$hasState === void 0 ? function (value) {
     return value !== undefined;
-  } : _ref$hasState,
-      _ref$expireAfter = _ref.expireAfter,
-      expireAfter = _ref$expireAfter === void 0 ? Infinity : _ref$expireAfter;
+  } : _ref$hasState;
   var resourceId = uuid();
 
   var getResourceState = function getResourceState() {
@@ -83,7 +81,6 @@ var createResource = function createResource(_ref) {
   };
 
   var pendingLoaders = new Map();
-  var entriesLastUpdatedById = new Map();
   return {
     getState: getResourceState,
     setState: setResourceState,
@@ -128,12 +125,9 @@ var createResource = function createResource(_ref) {
         throw pendingLoaders.get(entryId);
       }
 
-      var entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
-
-      if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
+      if (!hasState(selectState(resourceState, args), args)) {
         pendingLoaders.set(entryId, loader.apply(void 0, args).then(setEntryState(args))["catch"](registerError)["finally"](function () {
           pendingLoaders["delete"](entryId);
-          entriesLastUpdatedById.set(entryId, Date.now());
         }));
         throw pendingLoaders.get(entryId);
       }
@@ -144,7 +138,7 @@ var createResource = function createResource(_ref) {
   };
 };
 
-var createKeyedResource = ramda.curryN(2, function (createKey, loader, expireAfter) {
+var createKeyedResource = ramda.curryN(1, function (createKey, loader) {
   return createResource({
     selectState: function selectState(resourceState, args) {
       if (resourceState === void 0) {
@@ -162,21 +156,32 @@ var createKeyedResource = ramda.curryN(2, function (createKey, loader, expireAft
 
       return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
     },
-    loader: loader,
-    expireAfter: expireAfter
+    loader: loader
   });
 });
 
-var createSingleEntryResource = function createSingleEntryResource(loader, expireAfter) {
+var createSimpleResource = function createSimpleResource(loader) {
+  var currentArgs = [];
   return createResource({
-    selectState: function selectState(resourceState) {
-      return resourceState;
+    loader: loader,
+    selectState: function selectState(state) {
+      return state;
     },
-    setState: function setState(resourceState, args, data) {
+    setState: function setState(_, args, data) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      currentArgs = args;
       return data;
     },
-    loader: loader,
-    expireAfter: expireAfter
+    hasState: function hasState(state, args) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      return state !== undefined && ramda.equals(args, currentArgs);
+    }
   });
 };
 
@@ -296,7 +301,7 @@ var useSuspense = function useSuspense(fn) {
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
 exports.createKeyedResource = createKeyedResource;
 exports.createResource = createResource;
-exports.createSingleEntryResource = createSingleEntryResource;
+exports.createSimpleResource = createSimpleResource;
 exports.persistResource = persistResource;
 exports.useAutoSave = useAutoSave;
 exports.useSuspense = useSuspense;
