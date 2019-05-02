@@ -36,19 +36,18 @@ yarn add react-remote-resource
 
 ```jsx
 import {
-  createSingleEntryResource,
+  createSimpleResource,
   createKeyedResource,
   RemoteResourceBoundary
 } from "react-remote-resource";
 
-const userResource = createSingleEntryResource(userId =>
+const userResource = createSimpleResource(userId =>
   fetch(`/api/users/${userId}`).then(res => res.json())
 );
 
 const tweetsResource = createKeyedResource(
   userId => userId,
-  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json()),
-  10000
+  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json())
 );
 
 const UserInfo = ({ userId }) => {
@@ -118,6 +117,9 @@ Each resource creator will return a `resource` in the following shape:
 
 ```ts
 type Resource<A> = {
+  // The auto-generated UUID for the resource
+  id: string,
+
   // A function that takes the current state and a refresh flag and returns a function that takes any arguments and returns the next state or a Promise that resolves with the next state. Note: It is up to you to handle a rejected Promise. A `RemoteResourceBoundary` will not catch it.
   refresh: (...args: Array<any>) => Promise<A>,
 
@@ -155,36 +157,30 @@ const productsResource = createResource({
   loader: id => fetch(`/api/products/${id}`).then(response => response.json()),
 
   // Optional: A function that tests if the state is not empty. If this returns `false` the loader will be called.
-  hasState: state => state !== undefined,
-
-  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
-  expireAfter: 10 * 60 * 1000
+  hasState: state => state !== undefined
 });
 ```
 
 &nbsp;
 
-### `createSingleEntryResource`
+### `createSimpleResource`
 
-Creates a resource that only has one entry. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched.
+Creates a resource that will refetch if the given arguments change. It conveniently supplies getter, setter, and predicate functions to `createResource` under the hood, allowing you to simply supply a function that fetches your data. Once your data is fetched it will not be refetched unless you provide different arguments to `useState` or call `refresh`.
 
 ```javascript
-const myResource = createSingleEntryResource(
+const myResource = createSimpleResource(
   // The loader function that fetches data. Should return a promise.
-  authToken => fetch(`/api/about_me?auth_token=${authToken}`),
-
-  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
-  5000
+  authToken => fetch(`/api/about_me?auth_token=${authToken}`)
 );
 ```
 
-#### [`createSingleEntryResource` example on CodeSandbox](https://codesandbox.io/s/xpn5nq3ol4)
+#### [`createSimpleResource` example on CodeSandbox](https://codesandbox.io/s/xpn5nq3ol4)
 
 &nbsp;
 
 ### `createKeyedResource`
 
-Creates a resource that organizes its entries into an object literal. It takes a key setter function and a loader function that fetches your data. The key setter function derives the entry key from the same arguments that are supplied to the loader function. Once an entry is fetched it will not be refetched.
+Creates a resource that organizes its fetched data into an object literal. It takes a key setter function and a loader function that fetches your data. The key setter function derives the state key from the same arguments that are supplied to the loader function. If `useState` is used with arguments that map to an existing key in the state the data will not be re-fetched.
 
 ```javascript
 const myResource = createKeyedResource(
@@ -192,10 +188,7 @@ const myResource = createKeyedResource(
   (authToken, userId) => userId,
 
   // The loader function that fetches data. Should return a promise.
-  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`),
-
-  // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
-  1 * 60 * 1000
+  (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
 );
 ```
 
@@ -215,7 +208,7 @@ A higher order function that adds persistence to a specific resource.
 
 ```javascript
 const todosResource = persistResource(
-  // `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when an entry from the resource is requested.
+  // `getInitialState` - A function that returns a promise with the initial data. If the promise resolves, the data in the promise is used as the initial state of the resource. If the promise rejects, the load function of the resource will be called. This function is lazy and will only be called when `useState` is used.
   () => {
     const result = localStorage.getItem("todos");
     return result ? Promise.resolve(JSON.parse(result)) : Promise.reject();
@@ -227,7 +220,7 @@ const todosResource = persistResource(
   },
 
   // `resource` - The resource to persist
-  createSingleEntryResource(() => fetch("/api/todos"))
+  createSimpleResource(() => fetch("/api/todos"))
 );
 ```
 
@@ -319,10 +312,10 @@ When `UserTweets` renders, the `useState` hook will take the given `userId`, and
 Of course, we are not limited to reading state. Similar to React's `useState` we can update the state of our resource as well. Let's look at another example to show why this is useful.
 
 ```javascript
-const profileResource = createSingleEntryResource(authToken =>
+const profileResource = createSimpleResource(authToken =>
   fetch("/my_profile", {
     headers: {
-      Authorization: authToken
+      Authorization: `Bearer ${authToken}`
     }
   }).then(res => res.json())
 );
@@ -383,15 +376,15 @@ const ProfileForm = ({ authToken }) => {
 
 Notice that there's no save button! We're using an optimistic UI, where we update the local state immediately and then save it to our API after the fact. This can really help you remove friction for your users.
 
-**Pro Tip!**: Since `useState` is just a React hook, you can create custom hooks with it!
+**Pro Tip!** Since `useState` is just a React hook, you can create custom hooks with it!
 
 ```javascript
-const authTokenResource = createSingleEntryResource(
+const authTokenResource = createSimpleResource(
   () =>
     new Promise(resolve => resolve(localStorage.getItem("authToken") || ""))
 );
 
-const profileResource = createSingleEntryResource(authToken =>
+const profileResource = createSimpleResource(authToken =>
   fetch("/my_profile", {
     headers: {
       Authorization: `Bearer ${authToken}`
@@ -492,6 +485,39 @@ const UserForm = () => (
 
 &nbsp;
 
+### `resetAllResources`
+
+An effectful function that resets the state of all resources in memory.
+
+```javascript
+import React from "react";
+import { resetAllResources } from "react-remote-resource";
+
+const LogOutButton = () => <button onClick={resetAllResources}>Log out</button>;
+```
+
+&nbsp;
+
+### `resetResources`
+
+An effectful function that resets the state of the given resources.
+
+```javascript
+import React from "react";
+import { resetResources } from "react-remote-resource";
+import profileResource from "../resources/profile";
+import productsResource from "../resources/products";
+import ratingsResource from "../resources/ratings";
+
+const logOut = () => {
+  resetResource([profileResource, productsResource, ratingsResource]);
+};
+
+const LogOutButton = () => <button onClick={logOut}>Log out</button>;
+```
+
+&nbsp;
+
 ---
 
 &nbsp;
@@ -500,42 +526,22 @@ const UserForm = () => (
 
 &nbsp;
 
-> ### What are resource entries and how are they created?
-
-An entry is data that is stored in the `resource` when the promise of the `load` finally resolves.
-
-Each [Resource Creator](https://github.com/chadwatson/react-remote-resource#resource-creators) determines how the entries are organized and stored. As an example, `createSingleEntryResource` creates a `resource` that only has a single entry from an api.
-
-```javascript
-const postsResource = createSingleEntryResource(() =>
-  fetch("/api/posts")
-    .then(normalizePosts)
-    .then(filterToCurrentUser)
-    .then(...)
-);
-```
-
-The `postsResource` above, will store the value as a single entry in the resource once all the `.then` statements complete.
-
-&nbsp;
-&nbsp;
-
 > ### Does my data need to be in a specific shape to use `react-remote-resource`?
 
-No, `react-remote-resource` aims to organize your apis regardless of shape or type! Whatever resolves from the promise of the `load` function will be stored as the entry.
+No, `react-remote-resource` aims to organize your apis regardless of shape or type! Whatever resolves from the promise of the `load` function will be stored in the state.
 
 &nbsp;
 &nbsp;
 
-> ### When should I use `createKeyedResource` vs `createSingleEntryResource`?
+> ### When should I use `createKeyedResource` vs `createSimpleResource`?
 
-The the main difference between `createKeyedResource` and `createSingleEntryResource` is how the created `resource` stores its entries. Internally, every `resource` organizes the data it receives from the completed load function into entries. A `resource`'s main concern is how the data in the entries should be available to your app, not necessarily how the external api is structured or called.
+The main difference between `createSimpleResource` and `createKeyedResource` is how the created `resource` stores the data that gets fetched.
 
-- `createKeyedResource` creates a resource with multiple entries that are organized by key. [See the first parameter on how entries are keyed](https://github.com/chadwatson/react-remote-resource#createkeyedresource).
+- `createSimpleResource` creates a resource that only keeps around the data from the most recent fetch. All data, regardless of the structure, will be stored. If the arguments passed to `useState` are different from the last time it was used it will reload the data. Use this resource if you want to prioritize keeping your memory consumption small.
 
-- `createSingleEntryResource` creates a resource with only a single entry. All data, regardless of the structure, will be stored in only one entry.
+- `createKeyedResource` creates a resource that accumulates the results from each fetch, allowing you to access the data by a key that gets derived from the arguments passed into the loader function. [See the first parameter for more info on how keys can be created](https://github.com/chadwatson/react-remote-resource#createkeyedresource). Use this resource if you want to prioritize not over-fetching.
 
-The following example scenerios show when `createKeyedResource` and `createSingleEntryResource` are best suited:
+The following example scenerios show when `createKeyedResource` and `createSimpleResource` are best suited:
 
 #### Example Users API:
 
@@ -558,11 +564,11 @@ Assuming You have a users api that takes an id and returns user information:
 
 **Scenerio 1:**
 
-The app only needs the current user's information. Since the app only needs one entry from the api (the current user's information and no others), `createSingleEntryResource` would work well.
+The app only needs the current user's information. Since the app only needs one piece of data from the api (the current user's information and no others), `createSimpleResource` would work well.
 
 ```jsx
 const load = id => fetch(`/api/users/${id}`);
-const userResource = createSingleEntryResource(load);
+const userResource = createSimpleResource(load);
 
 const AboutMe = () => {
   const [user] = userResource.useState(12345);
@@ -622,11 +628,11 @@ Assuming you have a clients API that takes an `account_rep_id` and returns a lis
 
 **Scenerio 1:**
 
-The app only needs the current account rep's list: `createSingleEntryResource` would work well.
+The app only needs the current account rep's list: `createSimpleResource` would work well.
 
 ```jsx
 const load = (id) => fetch(`/api/clients/${id}`);
-const clientsResource = createSingleEntryResource(load);
+const clientsResource = createSimpleResource(load);
 
 const ClientList = () => {
   const [clients] = clientsResource.useState(12345);
@@ -685,10 +691,10 @@ You have a posts api that takes no parameters and returns a list of posts organi
 
 The app itself needs the data to be organized by userId.
 
-`createSingleEntryResource` could be utilized and composed for this:
+`createSimpleResource` could be utilized and composed for this:
 
 ```jsx
-const postsResource = createSingleEntryResource(() =>
+const postsResource = createSimpleResource(() =>
   fetch("/api/posts").then(posts =>
     posts.reduce(
       (acc, post) => ({
@@ -708,6 +714,6 @@ const useUsersPosts = id => {
 
 ### Last Note
 
-`createSingleEntryResource` and `createKeyedResource` are composed versions of `createResource`. If they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
+`createSimpleResource` and `createKeyedResource` are composed versions of `createResource`. If they do not fit your use case, try using `createResource` directly, as it may better suit your needs.
 
 &nbsp;
