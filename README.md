@@ -291,7 +291,7 @@ const tweetsResource = createKeyedResource(
 );
 ```
 
-This resource can fetch and store tweets for multiple users. Once it has fetched the tweets for a user it won't re-fetch them. Let's create a component that will render a user's tweets.
+This resource will fetch and store tweets by userId. Once it has fetched the tweets for a user it won't re-fetch them. Let's create a component that will render a user's tweets.
 
 ```jsx
 const UserTweets = ({ userId }) => {
@@ -314,7 +314,7 @@ const UserTweets = ({ userId }) => {
 };
 ```
 
-When `UserTweets` renders, the `useState` hook will take the given `userId`, check if tweets have been fetched for this user, and if they have they will be returned as the first item in the tuple. If they haven't then the loader function will be called and the returned promise will be thrown, which will be caught by the nearest `RemoteResourceBoundary`. Whatever data the promise resolves with will be set as the tweets for that user. Now that the data has been received for this user the component will re-render with the new data. If the component re-renders after this the loader function will not be called since the tweets have already been fetched. We will always get back the latest state.
+When `UserTweets` renders, the `useState` hook will take the given `userId`, and check if tweets have been fetched for this user. If they have, they will be returned as the first item in the tuple. If they haven't then the loader function will be called and the returned promise will be thrown, which will be caught by the nearest `RemoteResourceBoundary`. Whatever data the promise resolves with will be set as the tweets for that user. Once the data has been received for this user, the state will be set and the component will re-render with the new state. If the component re-renders after this the loader function will not be called since the tweets have already been fetched. We will always get back the latest state.
 
 Of course, we are not limited to reading state. Similar to React's `useState` we can update the state of our resource as well. Let's look at another example to show why this is useful.
 
@@ -394,7 +394,7 @@ const authTokenResource = createSingleEntryResource(
 const profileResource = createSingleEntryResource(authToken =>
   fetch("/my_profile", {
     headers: {
-      Authorization: authToken
+      Authorization: `Bearer ${authToken}`
     }
   }).then(res => res.json())
 );
