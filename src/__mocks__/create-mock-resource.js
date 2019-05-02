@@ -1,12 +1,12 @@
 import createResource from "../create-resource";
 
-export const createMockResource = (
+export const createMockResource = ({
   selectState,
   setState,
   loader,
   hasState,
-  entriesExpireAfter
-) => {
+  expireAfter
+}) => {
   const spies = {
     selectState: jest.fn().mockImplementation(selectState),
     setState: jest.fn().mockImplementation(setState),
@@ -14,13 +14,11 @@ export const createMockResource = (
   };
 
   return [
-    createResource(
-      spies.selectState,
-      spies.setState,
-      spies.loader,
+    createResource({
+      ...spies,
       hasState,
-      entriesExpireAfter
-    ),
+      expireAfter
+    }),
     spies
   ];
 };

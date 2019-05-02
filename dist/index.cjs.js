@@ -38,15 +38,16 @@ var Context = React.createContext({
   registerError: function registerError() {}
 });
 
-var createResource = ramda.curryN(3, function (selectState, setState, loader, hasState, entriesExpireAfter) {
-  if (hasState === void 0) {
-    hasState = ramda.complement(ramda.isNil);
-  }
-
-  if (entriesExpireAfter === void 0) {
-    entriesExpireAfter = Infinity;
-  }
-
+var createResource = function createResource(_ref) {
+  var selectState = _ref.selectState,
+      setState = _ref.setState,
+      loader = _ref.loader,
+      _ref$hasState = _ref.hasState,
+      hasState = _ref$hasState === void 0 ? function (value) {
+    return value !== undefined;
+  } : _ref$hasState,
+      _ref$expireAfter = _ref.expireAfter,
+      expireAfter = _ref$expireAfter === void 0 ? Infinity : _ref$expireAfter;
   var resourceId = uuid();
 
   var getResourceState = function getResourceState() {
@@ -63,9 +64,11 @@ var createResource = ramda.curryN(3, function (selectState, setState, loader, ha
     });
   };
 
-  var setEntryState = ramda.curry(function (args, state) {
-    return setResourceState(setState(getResourceState(), args, state));
-  });
+  var setEntryState = function setEntryState(args) {
+    return function (state) {
+      return setResourceState(setState(getResourceState(), args, state));
+    };
+  };
 
   var subscribe = function subscribe(onChange) {
     var currentState = getResourceState();
@@ -125,7 +128,7 @@ var createResource = ramda.curryN(3, function (selectState, setState, loader, ha
         throw pendingLoaders.get(entryId);
       }
 
-      var entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
+      var entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
 
       if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
         pendingLoaders.set(entryId, loader.apply(void 0, args).then(setEntryState(args))["catch"](registerError)["finally"](function () {
@@ -139,36 +142,42 @@ var createResource = ramda.curryN(3, function (selectState, setState, loader, ha
     },
     subscribe: subscribe
   };
+};
+
+var createKeyedResource = ramda.curryN(2, function (createKey, loader, expireAfter) {
+  return createResource({
+    selectState: function selectState(resourceState, args) {
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
+
+      return resourceState[createKey.apply(void 0, args)];
+    },
+    setState: function setState(resourceState, args, data) {
+      var _extends2;
+
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
+
+      return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
+    },
+    loader: loader,
+    expireAfter: expireAfter
+  });
 });
 
-var createKeyedResource = ramda.curryN(2, function (createKey, loader, entriesExpireAfter) {
-  return createResource(function (resourceState, args) {
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
-
-    return resourceState[createKey.apply(void 0, args)];
-  }, function (resourceState, args, data) {
-    var _extends2;
-
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
-
-    return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
-  }, loader, function (state) {
-    return state !== undefined;
-  }, entriesExpireAfter);
-});
-
-var createSingleEntryResource = function createSingleEntryResource(loader, entriesExpireAfter) {
-  return createResource(function (resourceState) {
-    return resourceState;
-  }, function (resourceState, args, data) {
-    return data;
-  }, loader, function (state) {
-    return state !== undefined;
-  }, entriesExpireAfter);
+var createSingleEntryResource = function createSingleEntryResource(loader, expireAfter) {
+  return createResource({
+    selectState: function selectState(resourceState) {
+      return resourceState;
+    },
+    setState: function setState(resourceState, args, data) {
+      return data;
+    },
+    loader: loader,
+    expireAfter: expireAfter
+  });
 };
 
 var persistResource = function persistResource(getInitialState, persistState, resource) {

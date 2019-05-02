@@ -1,12 +1,11 @@
 import createResource from "./create-resource";
 
-const createSingleEntryResource = (loader, entriesExpireAfter) =>
-  createResource(
-    resourceState => resourceState,
-    (resourceState, args, data) => data,
+const createSingleEntryResource = (loader, expireAfter) =>
+  createResource({
+    selectState: resourceState => resourceState,
+    setState: (resourceState, args, data) => data,
     loader,
-    state => state !== undefined,
-    entriesExpireAfter
-  );
+    expireAfter
+  });
 
 export default createSingleEntryResource;

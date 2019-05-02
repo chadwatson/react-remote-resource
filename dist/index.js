@@ -1,5 +1,5 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curryN, complement, isNil, curry } from 'ramda';
+import { curryN } from 'ramda';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
@@ -31,15 +31,14 @@ const Context = createContext({
   registerError: () => {}
 });
 
-const createResource = curryN(3, function (selectState, setState, loader, hasState, entriesExpireAfter) {
-  if (hasState === void 0) {
-    hasState = complement(isNil);
-  }
-
-  if (entriesExpireAfter === void 0) {
-    entriesExpireAfter = Infinity;
-  }
-
+const createResource = (_ref) => {
+  let selectState = _ref.selectState,
+      setState = _ref.setState,
+      loader = _ref.loader,
+      _ref$hasState = _ref.hasState,
+      hasState = _ref$hasState === void 0 ? value => value !== undefined : _ref$hasState,
+      _ref$expireAfter = _ref.expireAfter,
+      expireAfter = _ref$expireAfter === void 0 ? Infinity : _ref$expireAfter;
   const resourceId = uuid();
 
   const getResourceState = () => selectResource(store.getState(), {
@@ -54,7 +53,7 @@ const createResource = curryN(3, function (selectState, setState, loader, hasSta
     });
   };
 
-  const setEntryState = curry((args, state) => setResourceState(setState(getResourceState(), args, state)));
+  const setEntryState = args => state => setResourceState(setState(getResourceState(), args, state));
 
   const subscribe = onChange => {
     let currentState = getResourceState();
@@ -111,7 +110,7 @@ const createResource = curryN(3, function (selectState, setState, loader, hasSta
         throw pendingLoaders.get(entryId);
       }
 
-      const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
+      const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + expireAfter < Date.now();
 
       if (!hasState(selectState(resourceState, args)) || entryIsExpired && renderCount.current === 1) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
@@ -125,25 +124,35 @@ const createResource = curryN(3, function (selectState, setState, loader, hasSta
     },
     subscribe
   };
+};
+
+const createKeyedResource = curryN(2, (createKey, loader, expireAfter) => createResource({
+  selectState: function selectState(resourceState, args) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    return resourceState[createKey(...args)];
+  },
+  setState: function setState(resourceState, args, data) {
+    if (resourceState === void 0) {
+      resourceState = {};
+    }
+
+    return _extends({}, resourceState, {
+      [createKey(...args)]: data
+    });
+  },
+  loader,
+  expireAfter
+}));
+
+const createSingleEntryResource = (loader, expireAfter) => createResource({
+  selectState: resourceState => resourceState,
+  setState: (resourceState, args, data) => data,
+  loader,
+  expireAfter
 });
-
-const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) => createResource(function (resourceState, args) {
-  if (resourceState === void 0) {
-    resourceState = {};
-  }
-
-  return resourceState[createKey(...args)];
-}, function (resourceState, args, data) {
-  if (resourceState === void 0) {
-    resourceState = {};
-  }
-
-  return _extends({}, resourceState, {
-    [createKey(...args)]: data
-  });
-}, loader, state => state !== undefined, entriesExpireAfter));
-
-const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, state => state !== undefined, entriesExpireAfter);
 
 const persistResource = (getInitialState, persistState, resource) => {
   let loader = null;

@@ -19,11 +19,11 @@ const MockResourceConsumer = ({ resource }) => {
 
 describe("RemoteResourceBoundary", () => {
   it("remote resource boundary shows the fallback when loading", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const { getByText } = render(
       <RemoteResourceBoundary
@@ -38,11 +38,11 @@ describe("RemoteResourceBoundary", () => {
   });
 
   it("remote resource boundary shows the error when rejected", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.reject("rejected")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.reject("rejected")
+    });
 
     const { getByText } = render(
       <RemoteResourceBoundary
@@ -60,11 +60,11 @@ describe("RemoteResourceBoundary", () => {
   it("remote resource boundary calls on load error when promise rejected", async () => {
     const spy = jest.fn();
 
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.reject("rejected")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.reject("rejected")
+    });
 
     const { getByText } = render(
       <RemoteResourceBoundary
@@ -84,10 +84,10 @@ describe("RemoteResourceBoundary", () => {
   it("remote resource boundary retry function works as desired", async () => {
     let callCount = 0;
 
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => {
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => {
         if (callCount === 0) {
           callCount++;
           return Promise.reject("rejected");
@@ -95,7 +95,7 @@ describe("RemoteResourceBoundary", () => {
 
         return Promise.resolve("resolved");
       }
-    );
+    });
 
     const { getByText } = render(
       <RemoteResourceBoundary

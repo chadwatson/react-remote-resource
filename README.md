@@ -141,25 +141,25 @@ type Resource<A> = {
 Creates a new resource.
 
 ```javascript
-const productsResource = createResource(
+const productsResource = createResource({
   // A function that selects some substate from the resource state
-  (currentState = {}, [id]) => currentState[id],
+  selectState: (currentState = {}, [id]) => currentState[id],
 
   // A function that sets the state
-  (currentState = {}, [id], product) => ({
+  setState: (currentState = {}, [id], product) => ({
     ...currentState,
     [id]: product
   }),
 
   // The loader function that fetches data. Should return a promise.
-  id => fetch(`/api/products/${id}`).then(response => response.json()),
+  loader: id => fetch(`/api/products/${id}`).then(response => response.json()),
 
   // Optional: A function that tests if the state is not empty. If this returns `false` the loader will be called.
-  state => state !== undefined,
+  hasState: state => state !== undefined,
 
   // Optional: The expiration time for entries in milliseconds, beginning from each entry's load time, defaults to Infinity.
-  10 * 60 * 1000
-);
+  expireAfter: 10 * 60 * 1000
+});
 ```
 
 &nbsp;

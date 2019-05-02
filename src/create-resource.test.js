@@ -23,27 +23,15 @@ describe("createResource", () => {
     expect(typeof createResource).toBe("function");
   });
 
-  it("returns a function when passed a selectState", () => {
-    expect(typeof createResource(selectState)).toBe("function");
-  });
-
-  it("returns a function when passed a selectState and setState", () => {
-    expect(typeof createResource(selectState, setState)).toBe("function");
-  });
-
-  it("returns a resource when passed a selectState, setState, and loader", () => {
-    assertResourceShape(createResource(selectState, setState, loader));
-  });
-
-  it("returns a resource when passed a selectState, setState, loader, and hasState", () => {
+  it("returns a resource", () => {
     assertResourceShape(
-      createResource(selectState, setState, loader, hasState)
-    );
-  });
-
-  it("returns a resource when passed a selectState, setState, loader, hasState, and entriesExpireAfter ", () => {
-    assertResourceShape(
-      createResource(selectState, setState, loader, hasState, 1)
+      createResource({
+        selectState,
+        setState,
+        loader,
+        hasState,
+        expireAfter: 100
+      })
     );
   });
 
@@ -52,11 +40,11 @@ describe("createResource", () => {
   // ---------------------------
 
   it("can setState and getState", () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     expect(resource.getState()).toBe(undefined);
     resource.setState("new resource state");
@@ -78,11 +66,11 @@ describe("createResource", () => {
   });
 
   it("can refresh", async () => {
-    const [resource, spies] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource, spies] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     expect(resource.getState()).toBe(undefined);
     await resource.refresh();
@@ -91,11 +79,11 @@ describe("createResource", () => {
   });
 
   it("can subscribe", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const spy = jest.fn().mockImplementation(() => resource.getState());
 
@@ -111,11 +99,11 @@ describe("createResource", () => {
   });
 
   it("can consume entry", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
       const [entry] = resource.useState();
@@ -137,11 +125,11 @@ describe("createResource", () => {
   });
 
   it("updates an entry when state changes (externally)", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
       const [entry] = resource.useState();
@@ -166,11 +154,11 @@ describe("createResource", () => {
   });
 
   it("updates an entry when state changes (using state setState)", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
       const [entry, setEntry] = resource.useState();
@@ -198,14 +186,14 @@ describe("createResource", () => {
   });
 
   it("uses arguments array to scope resource by entry", async () => {
-    const [resource] = createMockResource(
-      (currentState = {}, [index]) => currentState[index],
-      (currentState = {}, [index], value) => ({
+    const [resource] = createMockResource({
+      selectState: (currentState = {}, [index]) => currentState[index],
+      setState: (currentState = {}, [index], value) => ({
         ...currentState,
         [index]: value
       }),
-      index => Promise.resolve(`${index}: resolved`)
-    );
+      loader: index => Promise.resolve(`${index}: resolved`)
+    });
 
     const Example = ({ index }) => {
       const [entry, setEntry] = resource.useState(index);
@@ -244,14 +232,14 @@ describe("createResource", () => {
   });
 
   it("all components stay up to date when entry state changes", async () => {
-    const [resource] = createMockResource(
-      (currentState = {}, [index]) => currentState[index],
-      (currentState = {}, [index], value) => ({
+    const [resource] = createMockResource({
+      selectState: (currentState = {}, [index]) => currentState[index],
+      setState: (currentState = {}, [index], value) => ({
         ...currentState,
         [index]: value
       }),
-      () => Promise.resolve(`loaded value`)
-    );
+      loader: () => Promise.resolve(`loaded value`)
+    });
 
     // ---------------------------
     // Components
@@ -314,16 +302,15 @@ describe("createResource", () => {
 
     let count = 0;
 
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => {
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => {
         count += 1;
         return Promise.resolve(count);
       },
-      undefined,
-      100
-    );
+      expireAfter: 100
+    });
 
     // Component uses specific resource entry then renders current count
 
@@ -398,16 +385,15 @@ describe("createResource", () => {
 
     let count = 0;
 
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => {
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => {
         count += 1;
         return Promise.resolve(count);
       },
-      undefined,
-      100
-    );
+      expireAfter: 100
+    });
 
     // Component uses specific resource entry then renders current count
 
