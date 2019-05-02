@@ -42,6 +42,7 @@ const createResource = ({
   const pendingLoaders = new Map();
 
   return {
+    id: resourceId,
     getState: getResourceState,
     setState: setResourceState,
     refresh: (...args) => loader(...args).then(setEntryState(args)),

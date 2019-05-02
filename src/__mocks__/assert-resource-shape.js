@@ -12,6 +12,7 @@
  * @param {object} resource
  */
 export const assertResourceShape = resource => {
+  expect(typeof resource.id).toBe("string");
   expect(typeof resource.getState).toBe("function");
   expect(typeof resource.setState).toBe("function");
   expect(typeof resource.refresh).toBe("function");

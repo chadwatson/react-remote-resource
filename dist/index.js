@@ -8,6 +8,7 @@ import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
 const RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
+const RESET_RESOURCES = "RESET_RESOURCES";
 const initialRootState = Map$1({
   resourcesById: Map$1()
 });
@@ -20,14 +21,20 @@ const rootReducer = (state, action) => {
     case RESET_ALL_RESOURCES:
       return state.update("resourcesById", resources => resources.clear());
 
+    case RESET_RESOURCES:
+      return state.update("resourcesById", resources => resources.withMutations(mutableResources => action.resources.forEach((_ref) => {
+        let id = _ref.id;
+        mutableResources.delete(id);
+      })));
+
     default:
       return state;
   }
 };
 
 const store = createStore(rootReducer, initialRootState);
-const selectResource = (state, _ref) => {
-  let resourceId = _ref.resourceId;
+const selectResource = (state, _ref2) => {
+  let resourceId = _ref2.resourceId;
   return state.getIn(["resourcesById", resourceId]);
 };
 
@@ -71,6 +78,7 @@ const createResource = (_ref) => {
 
   const pendingLoaders = new Map();
   return {
+    id: resourceId,
     getState: getResourceState,
     setState: setResourceState,
     refresh: function refresh() {
@@ -224,6 +232,11 @@ const resetAllResources = () => store.dispatch({
   type: RESET_ALL_RESOURCES
 });
 
+const resetResources = resources => store.dispatch({
+  type: RESET_RESOURCES,
+  resources
+});
+
 const useAutoSave = function useAutoSave(value, save, delay) {
   if (delay === void 0) {
     delay = 1000;
@@ -270,4 +283,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, resetAllResources, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, resetAllResources, resetResources, useAutoSave, useSuspense };

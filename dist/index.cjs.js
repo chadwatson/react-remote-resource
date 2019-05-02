@@ -15,6 +15,7 @@ var Maybe = _interopDefault(require('data.maybe'));
 
 var RECEIVE_STATE = "RECEIVE_STATE";
 var RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
+var RESET_RESOURCES = "RESET_RESOURCES";
 var initialRootState = immutable.Map({
   resourcesById: immutable.Map()
 });
@@ -29,14 +30,24 @@ var rootReducer = function rootReducer(state, action) {
         return resources.clear();
       });
 
+    case RESET_RESOURCES:
+      return state.update("resourcesById", function (resources) {
+        return resources.withMutations(function (mutableResources) {
+          return action.resources.forEach(function (_ref) {
+            var id = _ref.id;
+            mutableResources["delete"](id);
+          });
+        });
+      });
+
     default:
       return state;
   }
 };
 
 var store = redux.createStore(rootReducer, initialRootState);
-var selectResource = function selectResource(state, _ref) {
-  var resourceId = _ref.resourceId;
+var selectResource = function selectResource(state, _ref2) {
+  var resourceId = _ref2.resourceId;
   return state.getIn(["resourcesById", resourceId]);
 };
 
@@ -88,6 +99,7 @@ var createResource = function createResource(_ref) {
 
   var pendingLoaders = new Map();
   return {
+    id: resourceId,
     getState: getResourceState,
     setState: setResourceState,
     refresh: function refresh() {
@@ -256,6 +268,13 @@ var resetAllResources = function resetAllResources() {
   });
 };
 
+var resetResources = function resetResources(resources) {
+  return store.dispatch({
+    type: RESET_RESOURCES,
+    resources: resources
+  });
+};
+
 var useAutoSave = function useAutoSave(value, save, delay) {
   if (delay === void 0) {
     delay = 1000;
@@ -316,5 +335,6 @@ exports.createResource = createResource;
 exports.createSimpleResource = createSimpleResource;
 exports.persistResource = persistResource;
 exports.resetAllResources = resetAllResources;
+exports.resetResources = resetResources;
 exports.useAutoSave = useAutoSave;
 exports.useSuspense = useSuspense;
