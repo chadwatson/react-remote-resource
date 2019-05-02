@@ -5,12 +5,13 @@ Object.defineProperty(exports, '__esModule', { value: true });
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
 var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
-var ramda = require('ramda');
+var hash = _interopDefault(require('object-hash'));
 var React = require('react');
 var React__default = _interopDefault(React);
 var uuid = _interopDefault(require('uuid/v1'));
 var redux = require('redux');
 var immutable = require('immutable');
+var ramda = require('ramda');
 var Maybe = _interopDefault(require('data.maybe'));
 
 var RECEIVE_STATE = "RECEIVE_STATE";
@@ -156,7 +157,17 @@ var createResource = function createResource(_ref) {
   };
 };
 
-var createKeyedResource = ramda.curryN(1, function (createKey, loader) {
+var createKeyedResource = function createKeyedResource(loader, createKey) {
+  if (createKey === void 0) {
+    createKey = function createKey() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return hash(args);
+    };
+  }
+
   return createResource({
     selectState: function selectState(resourceState, args) {
       if (resourceState === void 0) {
@@ -176,7 +187,7 @@ var createKeyedResource = ramda.curryN(1, function (createKey, loader) {
     },
     loader: loader
   });
-});
+};
 
 var createSimpleResource = function createSimpleResource(loader) {
   var currentArgs = [];

@@ -1,7 +1,7 @@
-import { curryN } from "ramda";
+import hash from "object-hash";
 import createResource from "./create-resource";
 
-const createKeyedResource = curryN(1, (createKey, loader) =>
+const createKeyedResource = (loader, createKey = (...args) => hash(args)) =>
   createResource({
     selectState: (resourceState = {}, args) =>
       resourceState[createKey(...args)],
@@ -10,7 +10,6 @@ const createKeyedResource = curryN(1, (createKey, loader) =>
       [createKey(...args)]: data
     }),
     loader
-  })
-);
+  });
 
 export default createKeyedResource;

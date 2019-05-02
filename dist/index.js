@@ -1,9 +1,10 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curryN, equals } from 'ramda';
+import hash from 'object-hash';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { Map as Map$1 } from 'immutable';
+import { equals } from 'ramda';
 import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
@@ -132,25 +133,37 @@ const createResource = (_ref) => {
   };
 };
 
-const createKeyedResource = curryN(1, (createKey, loader) => createResource({
-  selectState: function selectState(resourceState, args) {
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
+const createKeyedResource = function createKeyedResource(loader, createKey) {
+  if (createKey === void 0) {
+    createKey = function createKey() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
 
-    return resourceState[createKey(...args)];
-  },
-  setState: function setState(resourceState, args, data) {
-    if (resourceState === void 0) {
-      resourceState = {};
-    }
+      return hash(args);
+    };
+  }
 
-    return _extends({}, resourceState, {
-      [createKey(...args)]: data
-    });
-  },
-  loader
-}));
+  return createResource({
+    selectState: function selectState(resourceState, args) {
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
+
+      return resourceState[createKey(...args)];
+    },
+    setState: function setState(resourceState, args, data) {
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
+
+      return _extends({}, resourceState, {
+        [createKey(...args)]: data
+      });
+    },
+    loader
+  });
+};
 
 const createSimpleResource = loader => {
   let currentArgs = [];

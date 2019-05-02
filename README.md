@@ -45,9 +45,8 @@ const userResource = createSimpleResource(userId =>
   fetch(`/api/users/${userId}`).then(res => res.json())
 );
 
-const tweetsResource = createKeyedResource(
-  userId => userId,
-  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json())
+const tweetsResource = createKeyedResource(userId =>
+  fetch(`/api/users/${userId}/tweets`).then(res => res.json())
 );
 
 const UserInfo = ({ userId }) => {
@@ -184,11 +183,11 @@ Creates a resource that organizes its fetched data into an object literal. It ta
 
 ```javascript
 const myResource = createKeyedResource(
-  // A function that takes all of the arguments that are supplied to the loader, from resource.useState, and uses the returned value as the key
-  (authToken, userId) => userId,
-
   // The loader function that fetches data. Should return a promise.
   (authToken, userId) => fetch(`/api/users/${userId}?auth_token=${authToken}`)
+
+  // Optional: A function that takes all of the arguments that are supplied to the loader, from resource.useState, and uses the returned value as the key
+  (authToken, userId) => userId,
 );
 ```
 
@@ -278,9 +277,8 @@ Let's look at an example to understand how this works.
 Take the following resource:
 
 ```javascript
-const tweetsResource = createKeyedResource(
-  userId => userId,
-  userId => fetch(`/api/users/${userId}/tweets`).then(res => res.json())
+const tweetsResource = createKeyedResource(userId =>
+  fetch(`/api/users/${userId}/tweets`).then(res => res.json())
 );
 ```
 
@@ -539,7 +537,7 @@ The main difference between `createSimpleResource` and `createKeyedResource` is 
 
 - `createSimpleResource` creates a resource that only keeps around the data from the most recent fetch. All data, regardless of the structure, will be stored. If the arguments passed to `useState` are different from the last time it was used it will reload the data. Use this resource if you want to prioritize keeping your memory consumption small.
 
-- `createKeyedResource` creates a resource that accumulates the results from each fetch, allowing you to access the data by a key that gets derived from the arguments passed into the loader function. [See the first parameter for more info on how keys can be created](https://github.com/chadwatson/react-remote-resource#createkeyedresource). Use this resource if you want to prioritize not over-fetching.
+- `createKeyedResource` creates a resource that accumulates the results from each fetch, allowing you to access the data by a key that gets derived from the arguments passed into the loader function. [See the second parameter for more info on how keys can be created](https://github.com/chadwatson/react-remote-resource#createkeyedresource). Use this resource if you want to prioritize not over-fetching.
 
 The following example scenerios show when `createKeyedResource` and `createSimpleResource` are best suited:
 
@@ -582,7 +580,7 @@ The app needs to make individual requests to the same users API and store the re
 
 ```jsx
 const load = id => fetch(`/api/users/${id}`);
-const usersResource = createKeyedResource(id => id, load);
+const usersResource = createKeyedResource(load);
 
 const User = ({ id }) => {
   const [user] = usersResource.useState(id);
@@ -646,7 +644,7 @@ The app needs multiple account rep's client list: `createKeyedResource` is bette
 
 ```jsx
 const load = account_rep_id => fetch(`/api/clients/${account_rep_id}`);
-const clientsResource = createKeyedResource(id => id, load);
+const clientsResource = createKeyedResource(load);
 
 const ClientList = ({ account_rep_id }) => {
   const [clients] = clientsResource.useState(account_rep_id);
