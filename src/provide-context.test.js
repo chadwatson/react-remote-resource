@@ -147,4 +147,41 @@ describe("provideContext", () => {
 
     expect(loader).toHaveBeenCalledWith("abc123");
   });
+
+  it("can compose provideContexts", () => {
+    const AuthTokenContext = React.createContext("");
+    const CurrentSystemIdContext = React.createContext("");
+
+    const provideAuthToken = provideContext(() =>
+      React.useContext(AuthTokenContext)
+    );
+    const provideCurrentSystemId = provideContext(() =>
+      React.useContext(CurrentSystemIdContext)
+    );
+
+    const loader = jest
+      .fn()
+      .mockImplementation((authToken, systemId) => Promise.resolve(authToken));
+
+    const resource = provideCurrentSystemId(
+      provideAuthToken(createSimpleResource(loader))
+    );
+
+    const Example = () => {
+      const [state] = resource.useState();
+      return state;
+    };
+
+    render(
+      <AuthTokenContext.Provider value="abc123">
+        <CurrentSystemIdContext.Provider value={12345}>
+          <React.Suspense fallback={null}>
+            <Example />
+          </React.Suspense>
+        </CurrentSystemIdContext.Provider>
+      </AuthTokenContext.Provider>
+    );
+
+    expect(loader).toHaveBeenCalledWith("abc123", 12345);
+  });
 });
