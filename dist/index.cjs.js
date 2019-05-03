@@ -239,6 +239,18 @@ var persistResource = function persistResource(getInitialState, persistState, re
   });
 };
 
+var provideContext = ramda.curry(function (provider, resource) {
+  return _extends({}, resource, {
+    useState: function useState() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return resource.useState.apply(resource, [provider.apply(void 0, args)].concat(args));
+    }
+  });
+});
+
 var RemoteResourceBoundary = function RemoteResourceBoundary(_ref) {
   var children = _ref.children,
       _ref$onLoadError = _ref.onLoadError,
@@ -345,6 +357,7 @@ exports.createKeyedResource = createKeyedResource;
 exports.createResource = createResource;
 exports.createSimpleResource = createSimpleResource;
 exports.persistResource = persistResource;
+exports.provideContext = provideContext;
 exports.resetAllResources = resetAllResources;
 exports.resetResources = resetResources;
 exports.useAutoSave = useAutoSave;

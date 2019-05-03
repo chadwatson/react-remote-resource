@@ -4,7 +4,7 @@ import React, { createContext, useRef, useState, useContext, useEffect, useCallb
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { Map as Map$1 } from 'immutable';
-import { equals } from 'ramda';
+import { equals, curry } from 'ramda';
 import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
@@ -211,6 +211,16 @@ const persistResource = (getInitialState, persistState, resource) => {
   });
 };
 
+const provideContext = curry((provider, resource) => _extends({}, resource, {
+  useState: function useState() {
+    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
+    }
+
+    return resource.useState(provider(...args), ...args);
+  }
+}));
+
 const RemoteResourceBoundary = (_ref) => {
   let children = _ref.children,
       _ref$onLoadError = _ref.onLoadError,
@@ -296,4 +306,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, resetAllResources, resetResources, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, provideContext, resetAllResources, resetResources, useAutoSave, useSuspense };
