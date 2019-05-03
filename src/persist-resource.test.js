@@ -1,6 +1,5 @@
 import React from "react";
 import { render, waitForElement } from "react-testing-library";
-import { identity } from "ramda";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import persistResource from "./persist-resource";
 import createKeyedResource from "./create-keyed-resource";
@@ -11,7 +10,7 @@ import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 // ---------------------------
 
 const MockResourceConsumer = ({ resource, index }) => {
-  const [entry] = resource.useEntry(index);
+  const [entry] = resource.useState(index);
 
   return entry;
 };
@@ -31,7 +30,7 @@ describe("persistResource", () => {
       persistResource(
         getInitialState,
         persist,
-        createKeyedResource(identity, () => Promise.resolve("load"))
+        createKeyedResource(() => Promise.resolve("load"))
       )
     );
   });
@@ -45,7 +44,7 @@ describe("persistResource", () => {
     const resource = persistResource(
       getInitialState,
       persist,
-      createKeyedResource(identity, () => Promise.resolve("load"))
+      createKeyedResource(() => Promise.resolve("load"), index => index)
     );
 
     const { getByText } = render(
@@ -69,7 +68,7 @@ describe("persistResource", () => {
     const resource = persistResource(
       getInitialState,
       persist,
-      createKeyedResource(identity, () => Promise.resolve("load"))
+      createKeyedResource(() => Promise.resolve("load"), index => index)
     );
 
     const { getByText } = render(
@@ -99,7 +98,7 @@ describe("persistResource", () => {
     const resource = persistResource(
       getInitialState,
       persist,
-      createKeyedResource(identity, () => Promise.resolve("load"))
+      createKeyedResource(() => Promise.resolve("load"), index => index)
     );
 
     resource.setState({ 0: "manual" });

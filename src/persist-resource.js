@@ -3,7 +3,7 @@ const persistResource = (getInitialState, persistState, resource) => {
 
   return {
     ...resource,
-    useEntry: (...args) => {
+    useState: (...args) => {
       const resourceState = resource.getState();
 
       if (resourceState === undefined) {
@@ -23,7 +23,7 @@ const persistResource = (getInitialState, persistState, resource) => {
         throw loader;
       }
 
-      return resource.useEntry(...args);
+      return resource.useState(...args);
     }
   };
 };

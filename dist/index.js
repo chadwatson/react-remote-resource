@@ -1,12 +1,15 @@
 import _extends from '@babel/runtime/helpers/esm/extends';
-import { curryN, curry } from 'ramda';
+import hash from 'object-hash';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
 import { createStore } from 'redux';
 import { Map as Map$1 } from 'immutable';
+import { equals } from 'ramda';
 import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
+const RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
+const RESET_RESOURCES = "RESET_RESOURCES";
 const initialRootState = Map$1({
   resourcesById: Map$1()
 });
@@ -16,14 +19,23 @@ const rootReducer = (state, action) => {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
 
+    case RESET_ALL_RESOURCES:
+      return state.update("resourcesById", resources => resources.clear());
+
+    case RESET_RESOURCES:
+      return state.update("resourcesById", resources => resources.withMutations(mutableResources => action.resources.forEach((_ref) => {
+        let id = _ref.id;
+        mutableResources.delete(id);
+      })));
+
     default:
       return state;
   }
 };
 
 const store = createStore(rootReducer, initialRootState);
-const selectResource = (state, _ref) => {
-  let resourceId = _ref.resourceId;
+const selectResource = (state, _ref2) => {
+  let resourceId = _ref2.resourceId;
   return state.getIn(["resourcesById", resourceId]);
 };
 
@@ -31,11 +43,12 @@ const Context = createContext({
   registerError: () => {}
 });
 
-const createResource = curryN(3, function (entryGetter, entrySetter, loader, entriesExpireAfter) {
-  if (entriesExpireAfter === void 0) {
-    entriesExpireAfter = Infinity;
-  }
-
+const createResource = (_ref) => {
+  let selectState = _ref.selectState,
+      setState = _ref.setState,
+      loader = _ref.loader,
+      _ref$hasState = _ref.hasState,
+      hasState = _ref$hasState === void 0 ? value => value !== undefined : _ref$hasState;
   const resourceId = uuid();
 
   const getResourceState = () => selectResource(store.getState(), {
@@ -50,7 +63,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
     });
   };
 
-  const setEntryState = curry((args, state) => setResourceState(entrySetter(getResourceState(), args, state)));
+  const setEntryState = args => state => setResourceState(setState(getResourceState(), args, state));
 
   const subscribe = onChange => {
     let currentState = getResourceState();
@@ -65,8 +78,8 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
   };
 
   const pendingLoaders = new Map();
-  const entriesLastUpdatedById = new Map();
   return {
+    id: resourceId,
     getState: getResourceState,
     setState: setResourceState,
     refresh: function refresh() {
@@ -76,7 +89,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
 
       return loader(...args).then(setEntryState(args));
     },
-    useEntry: function useEntry() {
+    useState: function useState$1() {
       for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
         args[_key2] = arguments[_key2];
       }
@@ -85,9 +98,9 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
       renderCount.current += 1;
       const resourceState = getResourceState();
 
-      const _useState = useState(entryGetter(resourceState, args)),
-            state = _useState[0],
-            setState = _useState[1];
+      const _useState2 = useState(selectState(resourceState, args)),
+            state = _useState2[0],
+            setState = _useState2[1];
 
       const _useContext = useContext(Context),
             registerError = _useContext.registerError;
@@ -99,7 +112,7 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
         /* istanbul ignore else */
 
         if (nextState !== state) {
-          setState(entryGetter(nextState, args));
+          setState(selectState(nextState, args));
         }
       }), [state]);
 
@@ -107,12 +120,9 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
         throw pendingLoaders.get(entryId);
       }
 
-      const entryIsExpired = (entriesLastUpdatedById.get(entryId) || 0) + entriesExpireAfter < Date.now();
-
-      if (entryGetter(resourceState, args) === undefined || entryIsExpired && renderCount.current === 1) {
+      if (!hasState(selectState(resourceState, args), args)) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
           pendingLoaders.delete(entryId);
-          entriesLastUpdatedById.set(entryId, Date.now());
         }));
         throw pendingLoaders.get(entryId);
       }
@@ -121,30 +131,67 @@ const createResource = curryN(3, function (entryGetter, entrySetter, loader, ent
     },
     subscribe
   };
-});
+};
 
-const createKeyedResource = curryN(2, (createKey, loader, entriesExpireAfter) => createResource(function (resourceState, args) {
-  if (resourceState === void 0) {
-    resourceState = {};
+const createKeyedResource = function createKeyedResource(loader, createKey) {
+  if (createKey === void 0) {
+    createKey = function createKey() {
+      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+        args[_key] = arguments[_key];
+      }
+
+      return hash(args);
+    };
   }
 
-  return resourceState[createKey(...args)];
-}, function (resourceState, args, data) {
-  if (resourceState === void 0) {
-    resourceState = {};
-  }
+  return createResource({
+    selectState: function selectState(resourceState, args) {
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
 
-  return _extends({}, resourceState, {
-    [createKey(...args)]: data
+      return resourceState[createKey(...args)];
+    },
+    setState: function setState(resourceState, args, data) {
+      if (resourceState === void 0) {
+        resourceState = {};
+      }
+
+      return _extends({}, resourceState, {
+        [createKey(...args)]: data
+      });
+    },
+    loader
   });
-}, loader, entriesExpireAfter));
+};
 
-const createSingleEntryResource = (loader, entriesExpireAfter) => createResource(resourceState => resourceState, (resourceState, args, data) => data, loader, entriesExpireAfter);
+const createSimpleResource = loader => {
+  let currentArgs = [];
+  return createResource({
+    loader,
+    selectState: state => state,
+    setState: function setState(_, args, data) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      currentArgs = args;
+      return data;
+    },
+    hasState: function hasState(state, args) {
+      if (args === void 0) {
+        args = [];
+      }
+
+      return state !== undefined && equals(args, currentArgs);
+    }
+  });
+};
 
 const persistResource = (getInitialState, persistState, resource) => {
   let loader = null;
   return _extends({}, resource, {
-    useEntry: function useEntry() {
+    useState: function useState() {
       const resourceState = resource.getState();
 
       if (resourceState === undefined) {
@@ -159,7 +206,7 @@ const persistResource = (getInitialState, persistState, resource) => {
         throw loader;
       }
 
-      return resource.useEntry(...arguments);
+      return resource.useState(...arguments);
     }
   });
 };
@@ -193,6 +240,15 @@ const RemoteResourceBoundary = (_ref) => {
     fallback: fallback
   }, children)));
 };
+
+const resetAllResources = () => store.dispatch({
+  type: RESET_ALL_RESOURCES
+});
+
+const resetResources = resources => store.dispatch({
+  type: RESET_RESOURCES,
+  resources
+});
 
 const useAutoSave = function useAutoSave(value, save, delay) {
   if (delay === void 0) {
@@ -240,4 +296,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSingleEntryResource, persistResource, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, resetAllResources, resetResources, useAutoSave, useSuspense };

@@ -5,9 +5,10 @@ import { createMockResource } from "./__mocks__/create-mock-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 
-const getter = jest.fn();
-const setter = jest.fn();
+const selectState = jest.fn();
+const setState = jest.fn();
 const loader = jest.fn();
+const hasState = jest.fn();
 
 // ---------------------------
 // Tests
@@ -22,20 +23,15 @@ describe("createResource", () => {
     expect(typeof createResource).toBe("function");
   });
 
-  it("returns a function when passed a getter", () => {
-    expect(typeof createResource(getter)).toBe("function");
-  });
-
-  it("returns a function when passed a getter and setter", () => {
-    expect(typeof createResource(getter, setter)).toBe("function");
-  });
-
-  it("returns a resource when passed a getter, setter, and loader", () => {
-    assertResourceShape(createResource(getter, setter, loader));
-  });
-
-  it("returns a resource when passed a getter, setter, loader, and entriesExpireAfter ", () => {
-    assertResourceShape(createResource(getter, setter, loader, 1));
+  it("returns a resource", () => {
+    assertResourceShape(
+      createResource({
+        selectState,
+        setState,
+        loader,
+        hasState
+      })
+    );
   });
 
   // ---------------------------
@@ -43,11 +39,11 @@ describe("createResource", () => {
   // ---------------------------
 
   it("can setState and getState", () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     expect(resource.getState()).toBe(undefined);
     resource.setState("new resource state");
@@ -69,11 +65,11 @@ describe("createResource", () => {
   });
 
   it("can refresh", async () => {
-    const [resource, spies] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource, spies] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     expect(resource.getState()).toBe(undefined);
     await resource.refresh();
@@ -82,11 +78,11 @@ describe("createResource", () => {
   });
 
   it("can subscribe", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => Promise.resolve("resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const spy = jest.fn().mockImplementation(() => resource.getState());
 
@@ -102,14 +98,14 @@ describe("createResource", () => {
   });
 
   it("can consume entry", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -128,14 +124,14 @@ describe("createResource", () => {
   });
 
   it("updates an entry when state changes (externally)", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
-      const [entry] = resource.useEntry();
+      const [entry] = resource.useState();
 
       return entry;
     };
@@ -156,15 +152,15 @@ describe("createResource", () => {
     await waitForElement(() => getByText("end result"));
   });
 
-  it("updates an entry when state changes (using state setter)", async () => {
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      Promise.resolve.bind(Promise, "resolved")
-    );
+  it("updates an entry when state changes (using state setState)", async () => {
+    const [resource] = createMockResource({
+      selectState: value => value,
+      setState: (_, __, value) => value,
+      loader: () => Promise.resolve("resolved")
+    });
 
     const Example = () => {
-      const [entry, setEntry] = resource.useEntry();
+      const [entry, setEntry] = resource.useState();
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry("end result"), 1000);
@@ -189,17 +185,17 @@ describe("createResource", () => {
   });
 
   it("uses arguments array to scope resource by entry", async () => {
-    const [resource] = createMockResource(
-      (currentState = {}, [index]) => currentState[index],
-      (currentState = {}, [index], value) => ({
+    const [resource] = createMockResource({
+      selectState: (currentState = {}, [index]) => currentState[index],
+      setState: (currentState = {}, [index], value) => ({
         ...currentState,
         [index]: value
       }),
-      index => Promise.resolve(`${index}: resolved`)
-    );
+      loader: index => Promise.resolve(`${index}: resolved`)
+    });
 
     const Example = ({ index }) => {
-      const [entry, setEntry] = resource.useEntry(index);
+      const [entry, setEntry] = resource.useState(index);
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry(`${index}: finally`), 1000);
@@ -235,21 +231,21 @@ describe("createResource", () => {
   });
 
   it("all components stay up to date when entry state changes", async () => {
-    const [resource] = createMockResource(
-      (currentState = {}, [index]) => currentState[index],
-      (currentState = {}, [index], value) => ({
+    const [resource] = createMockResource({
+      selectState: (currentState = {}, [index]) => currentState[index],
+      setState: (currentState = {}, [index], value) => ({
         ...currentState,
         [index]: value
       }),
-      () => Promise.resolve(`loaded value`)
-    );
+      loader: () => Promise.resolve(`loaded value`)
+    });
 
     // ---------------------------
     // Components
     // ---------------------------
 
     const ExampleWithUpdates = ({ index }) => {
-      const [entry, setEntry] = resource.useEntry(index);
+      const [entry, setEntry] = resource.useState(index);
 
       useEffect(() => {
         const timeout = setTimeout(() => setEntry(`final value`), 1000);
@@ -260,7 +256,7 @@ describe("createResource", () => {
     };
 
     const ExampleStatic = ({ index }) => {
-      const [entry] = resource.useEntry(index);
+      const [entry] = resource.useState(index);
 
       return entry;
     };
@@ -274,7 +270,7 @@ describe("createResource", () => {
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <div data-testid="setter">
+        <div data-testid="setState">
           <ExampleWithUpdates index={0} />
         </div>
         <div data-testid="staticExample">
@@ -284,180 +280,107 @@ describe("createResource", () => {
     );
 
     await waitForElement(() => getByText("Loading..."));
-    const setter = await waitForElement(() => getByTestId("setter"));
-    expect(setter.textContent).toBe("loaded value");
+    const setState = await waitForElement(() => getByTestId("setState"));
+    expect(setState.textContent).toBe("loaded value");
 
     const staticExample = await waitForElement(() =>
       getByTestId("staticExample")
     );
     expect(staticExample.textContent).toBe("loaded value");
 
-    await wait(() => expect(setter.textContent).toBe("final value"));
+    await wait(() => expect(setState.textContent).toBe("final value"));
     await wait(() => expect(staticExample.textContent).toBe("final value"));
   });
 
-  it("does not update data on remount even after entry is expired.", async () => {
-    // ---------------------------
-    // Setup
-    // ---------------------------
+  it("refetches when a custom hasState function returns false", async () => {
+    const [resource] = createMockResource({
+      loader: keys =>
+        Promise.resolve(
+          keys.reduce((acc, key) => ({ ...acc, [key]: key }), {})
+        ),
+      selectState: (currentState = {}, [keys]) =>
+        keys.reduce(
+          (acc, key) =>
+            currentState[key] ? { ...acc, [key]: currentState[key] } : acc,
+          {}
+        ),
+      setState: (currentState = {}, [keys], additionalState) => ({
+        ...currentState,
+        ...additionalState
+      }),
+      hasState: (selectedState, [keys]) =>
+        keys.length === Object.keys(selectedState).length
+    });
 
-    // This resource should increment it's count when the entries expire (after 100ms)
+    const Example = ({ keys }) => {
+      const [state] = resource.useState(keys);
 
-    let count = 0;
-
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => {
-        count += 1;
-        return Promise.resolve(count);
-      },
-      100
-    );
-
-    // Component uses specific resource entry then renders current count
-
-    const Example = () => {
-      const [entry] = resource.useEntry();
-
-      return entry;
+      return (
+        <ul>
+          {Object.keys(state).map(key => (
+            <li key={key} data-testid={key}>
+              {state[key]}
+            </li>
+          ))}
+        </ul>
+      );
     };
 
-    // ---------------------------
-    // Rendering
-    // ---------------------------
-
-    // Initial render (initilizes resource - no entry should exist)
-    const { container, getByText, rerender } = render(
+    const { getByText, getByTestId, rerender } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <Example />
+        <Example keys={["a", "b", "c"]} />
       </RemoteResourceBoundary>
     );
 
     // Load function has fired and has thrown the promise
     await waitForElement(() => getByText("Loading..."));
 
-    // Load function completed and returned count
-    await waitForElement(() => getByText("1"));
+    // Load function completed and rendered list
+    await Promise.all([
+      waitForElement(() => getByTestId("a")),
+      waitForElement(() => getByTestId("b")),
+      waitForElement(() => getByTestId("c"))
+    ]);
 
     rerender(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <Example />
+        <Example keys={["a", "b", "c"]} />
       </RemoteResourceBoundary>
     );
 
-    // The cached entry is used instead of hitting the load function
-    await waitForElement(() => getByText("1"));
+    // The list is rendered without loading
+    await Promise.all([
+      waitForElement(() => getByTestId("a")),
+      waitForElement(() => getByTestId("b")),
+      waitForElement(() => getByTestId("c"))
+    ]);
 
-    // Wait until after the expiration of the resource entry
-    await delay(100);
-
-    // Ensure that the load function is not called again
-    const stopObservation = observeElement(() => {
-      expect(container).not.toHaveTextContent("2");
-      expect(container).not.toHaveTextContent("Loading...");
-    }, container);
-
-    rerender(
+    const {
+      getByText: getByTextRemount,
+      getByTestId: getByTestIdRemount
+    } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}
         renderError={() => <p>error</p>}
       >
-        <Example />
-      </RemoteResourceBoundary>
-    );
-
-    // Set the observation period to 100ms
-    await delay(100);
-
-    stopObservation();
-  });
-
-  it("refreshes data after expiration (mount)", async () => {
-    // ---------------------------
-    // Setup
-    // ---------------------------
-
-    // This resource should increment it's count when the entries expire (after 100ms)
-
-    let count = 0;
-
-    const [resource] = createMockResource(
-      value => value,
-      (_, __, value) => value,
-      () => {
-        count += 1;
-        return Promise.resolve(count);
-      },
-      100
-    );
-
-    // Component uses specific resource entry then renders current count
-
-    const Example = () => {
-      const [entry] = resource.useEntry();
-
-      return entry;
-    };
-
-    // ---------------------------
-    // Rendering
-    // ---------------------------
-
-    // Initial render (initilizes resource - no entry should exist)
-
-    const { getByText, rerender, unmount } = render(
-      <RemoteResourceBoundary
-        fallback={<p>Loading...</p>}
-        renderError={() => <p>error</p>}
-      >
-        <Example />
-      </RemoteResourceBoundary>
-    );
-
-    // Load function has fired and has thrown the promise
-    await waitForElement(() => getByText("Loading..."));
-
-    // Load function completed and returned count
-    await waitForElement(() => getByText("1"));
-
-    rerender(
-      <RemoteResourceBoundary
-        fallback={<p>Loading...</p>}
-        renderError={() => <p>error</p>}
-      >
-        <Example />
-      </RemoteResourceBoundary>
-    );
-
-    // The cached entry is used instead of hitting the load function
-    await waitForElement(() => getByText("1"));
-
-    // Wait until after the expiration of the resource entry
-    await delay(100);
-
-    unmount();
-
-    // Remount a new component using the resource
-    const { getByText: getByTextRemount } = render(
-      <RemoteResourceBoundary
-        fallback={<p>Loading...</p>}
-        renderError={() => <p>error</p>}
-      >
-        <Example />
+        <Example keys={["c", "d", "e"]} />
       </RemoteResourceBoundary>
     );
 
     // Load function has fired and has thrown the promise
     await waitForElement(() => getByTextRemount("Loading..."));
 
-    // Load function completed and returned count
-    await waitForElement(() => getByTextRemount("2"));
+    // Load function completed and rendered list
+    await Promise.all([
+      waitForElement(() => getByTestIdRemount("c")),
+      waitForElement(() => getByTestIdRemount("d")),
+      waitForElement(() => getByTestIdRemount("e"))
+    ]);
   });
 });
