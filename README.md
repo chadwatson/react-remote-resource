@@ -408,6 +408,41 @@ const ProfileForm = () => {
 };
 ```
 
+### `provideContext`
+
+A function that allows you to use a React hook to provide a value to a resource.
+
+```javascript
+const authTokenResource = createSimpleResource(() =>
+  Promise.resolve(localStorage.getItem("authToken") || "")
+);
+
+const useAuthToken = () => {
+  const [authToken] = authTokenResource.useState();
+  return authToken;
+};
+
+const profileResource = provideContext(
+  useAuthToken,
+  createSimpleResource(authToken =>
+    fetch("/my_profile", {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    }).then(res => res.json())
+  )
+);
+
+const ProfileForm = () => {
+  const [profile] = profileResource.useState();
+  return (
+    // ...
+  );
+};
+```
+
+&nbsp;
+
 &nbsp;
 
 ### `useAutoSave`
