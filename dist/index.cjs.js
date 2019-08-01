@@ -209,7 +209,7 @@ var createSimpleResource = function createSimpleResource(loader) {
         args = [];
       }
 
-      return state !== undefined && ramda.equals(args, currentArgs);
+      return state !== undefined && (!currentArgs.length || ramda.equals(args, currentArgs));
     }
   });
 };

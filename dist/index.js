@@ -183,7 +183,7 @@ const createSimpleResource = loader => {
         args = [];
       }
 
-      return state !== undefined && equals(args, currentArgs);
+      return state !== undefined && (!currentArgs.length || equals(args, currentArgs));
     }
   });
 };
