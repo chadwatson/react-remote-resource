@@ -38,12 +38,40 @@ describe("createSimpleResource", () => {
     expect(resource.getState()).toBe("resolved");
   });
 
-  it("does not run the load function if the entry is already defined", async () => {
+  it("does not run the load function if the entry is already defined and no arguments are provided", async () => {
     const resource = createSimpleResource(() => Promise.resolve("resolved"));
 
     const Example = () => {
       const [entry] = resource.useState();
+      return entry;
+    };
 
+    resource.setState("other state");
+
+    const { container, getByText } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example />
+      </RemoteResourceBoundary>
+    );
+
+    const stopObservation = observeElement(() => {
+      expect(container).not.toHaveTextContent("resolved");
+      expect(container).not.toHaveTextContent("Loading...");
+    }, container);
+
+    await waitForElement(() => getByText("other state"));
+
+    stopObservation();
+  });
+
+  it("does not run the load function if the entry is already defined and arguments are provided", async () => {
+    const resource = createSimpleResource(() => Promise.resolve("resolved"));
+
+    const Example = () => {
+      const [entry] = resource.useState("a", "b", "c");
       return entry;
     };
 

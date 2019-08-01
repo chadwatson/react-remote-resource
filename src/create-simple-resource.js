@@ -12,7 +12,7 @@ const createSimpleResource = loader => {
       return data;
     },
     hasState: (state, args = []) =>
-      state !== undefined && equals(args, currentArgs)
+      state !== undefined && (!currentArgs.length || equals(args, currentArgs))
   });
 };
 
