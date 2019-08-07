@@ -3,7 +3,7 @@ import provideContext from "./provide-context";
 import createResource from "./create-resource";
 import createSimpleResource from "./create-simple-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
-import { render, waitForElement } from "react-testing-library";
+import { render, waitForElement } from "@testing-library/react";
 
 describe("provideContext", () => {
   it("is a curried function with an arity of two", () => {

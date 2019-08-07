@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { render, waitForElement, wait } from "react-testing-library";
+import { render, waitForElement, wait } from "@testing-library/react";
 import createResource from "./create-resource";
 import { createMockResource } from "./__mocks__/create-mock-resource";
 import { assertResourceShape } from "./__mocks__/assert-resource-shape";
@@ -363,7 +363,7 @@ describe("createResource", () => {
 
     const {
       getByText: getByTextRemount,
-      getByTestId: getByTestIdRemount
+      getAllByTestId: getByTestIdRemount
     } = render(
       <RemoteResourceBoundary
         fallback={<p>Loading...</p>}

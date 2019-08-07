@@ -1,5 +1,5 @@
 import React from "react";
-import { render, waitForElement, fireEvent } from "react-testing-library";
+import { render, waitForElement, fireEvent } from "@testing-library/react";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import { createMockResource } from "./__mocks__/create-mock-resource";
 

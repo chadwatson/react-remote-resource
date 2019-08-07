@@ -97,9 +97,9 @@ const createResource = (_ref) => {
       const renderCount = useRef(0);
       renderCount.current += 1;
       const resourceState = getResourceState();
+      const entryState = selectState(resourceState, args);
 
-      const _useState2 = useState(selectState(resourceState, args)),
-            state = _useState2[0],
+      const _useState2 = useState(entryState),
             setState = _useState2[1];
 
       const _useContext = useContext(Context),
@@ -108,26 +108,26 @@ const createResource = (_ref) => {
       const entryId = args.length ? args.join("-") : "INDEX";
       useEffect(() => // Important! The return value is used to unsubscribe from the store
       subscribe(() => {
-        const nextState = getResourceState();
+        const nextEntryState = selectState(getResourceState(), args);
         /* istanbul ignore else */
 
-        if (nextState !== state) {
-          setState(selectState(nextState, args));
+        if (nextEntryState !== entryState) {
+          setState(nextEntryState);
         }
-      }), [state]);
+      }), args);
 
       if (pendingLoaders.get(entryId)) {
         throw pendingLoaders.get(entryId);
       }
 
-      if (!hasState(selectState(resourceState, args), args)) {
+      if (!hasState(entryState, args)) {
         pendingLoaders.set(entryId, loader(...args).then(setEntryState(args)).catch(registerError).finally(() => {
           pendingLoaders.delete(entryId);
         }));
         throw pendingLoaders.get(entryId);
       }
 
-      return [state, useCallback(setEntryState(args), args)];
+      return [entryState, useCallback(setEntryState(args), args)];
     },
     subscribe
   };
@@ -157,8 +157,9 @@ const createKeyedResource = function createKeyedResource(loader, createKey) {
         resourceState = {};
       }
 
+      const key = createKey(...args);
       return _extends({}, resourceState, {
-        [createKey(...args)]: data
+        [key]: typeof data === "function" ? data(resourceState[key]) : data
       });
     },
     loader

@@ -118,9 +118,9 @@ var createResource = function createResource(_ref) {
       var renderCount = React.useRef(0);
       renderCount.current += 1;
       var resourceState = getResourceState();
+      var entryState = selectState(resourceState, args);
 
-      var _useState2 = React.useState(selectState(resourceState, args)),
-          state = _useState2[0],
+      var _useState2 = React.useState(entryState),
           setState = _useState2[1];
 
       var _useContext = React.useContext(Context),
@@ -130,28 +130,28 @@ var createResource = function createResource(_ref) {
       React.useEffect(function () {
         return (// Important! The return value is used to unsubscribe from the store
           subscribe(function () {
-            var nextState = getResourceState();
+            var nextEntryState = selectState(getResourceState(), args);
             /* istanbul ignore else */
 
-            if (nextState !== state) {
-              setState(selectState(nextState, args));
+            if (nextEntryState !== entryState) {
+              setState(nextEntryState);
             }
           })
         );
-      }, [state]);
+      }, args);
 
       if (pendingLoaders.get(entryId)) {
         throw pendingLoaders.get(entryId);
       }
 
-      if (!hasState(selectState(resourceState, args), args)) {
+      if (!hasState(entryState, args)) {
         pendingLoaders.set(entryId, loader.apply(void 0, args).then(setEntryState(args))["catch"](registerError)["finally"](function () {
           pendingLoaders["delete"](entryId);
         }));
         throw pendingLoaders.get(entryId);
       }
 
-      return [state, React.useCallback(setEntryState(args), args)];
+      return [entryState, React.useCallback(setEntryState(args), args)];
     },
     subscribe: subscribe
   };
@@ -183,7 +183,8 @@ var createKeyedResource = function createKeyedResource(loader, createKey) {
         resourceState = {};
       }
 
-      return _extends({}, resourceState, (_extends2 = {}, _extends2[createKey.apply(void 0, args)] = data, _extends2));
+      var key = createKey.apply(void 0, args);
+      return _extends({}, resourceState, (_extends2 = {}, _extends2[key] = typeof data === "function" ? data(resourceState[key]) : data, _extends2));
     },
     loader: loader
   });

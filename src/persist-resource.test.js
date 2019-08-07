@@ -1,5 +1,5 @@
 import React from "react";
-import { render, waitForElement } from "react-testing-library";
+import { render, waitForElement } from "@testing-library/react";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import persistResource from "./persist-resource";
 import createKeyedResource from "./create-keyed-resource";

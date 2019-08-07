@@ -5,10 +5,13 @@ const createKeyedResource = (loader, createKey = (...args) => hash(args)) =>
   createResource({
     selectState: (resourceState = {}, args) =>
       resourceState[createKey(...args)],
-    setState: (resourceState = {}, args, data) => ({
-      ...resourceState,
-      [createKey(...args)]: data
-    }),
+    setState: (resourceState = {}, args, data) => {
+      const key = createKey(...args);
+      return {
+        ...resourceState,
+        [key]: typeof data === "function" ? data(resourceState[key]) : data
+      };
+    },
     loader
   });
 

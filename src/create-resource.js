@@ -51,7 +51,8 @@ const createResource = ({
       renderCount.current += 1;
 
       const resourceState = getResourceState();
-      const [state, setState] = useState(selectState(resourceState, args));
+      const entryState = selectState(resourceState, args);
+      const [, setState] = useState(entryState);
       const { registerError } = useContext(Context);
       const entryId = args.length ? args.join("-") : "INDEX";
 
@@ -59,20 +60,20 @@ const createResource = ({
         () =>
           // Important! The return value is used to unsubscribe from the store
           subscribe(() => {
-            const nextState = getResourceState();
+            const nextEntryState = selectState(getResourceState(), args);
             /* istanbul ignore else */
-            if (nextState !== state) {
-              setState(selectState(nextState, args));
+            if (nextEntryState !== entryState) {
+              setState(nextEntryState);
             }
           }),
-        [state]
+        args
       );
 
       if (pendingLoaders.get(entryId)) {
         throw pendingLoaders.get(entryId);
       }
 
-      if (!hasState(selectState(resourceState, args), args)) {
+      if (!hasState(entryState, args)) {
         pendingLoaders.set(
           entryId,
           loader(...args)
@@ -85,7 +86,7 @@ const createResource = ({
         throw pendingLoaders.get(entryId);
       }
 
-      return [state, useCallback(setEntryState(args), args)];
+      return [entryState, useCallback(setEntryState(args), args)];
     },
     subscribe
   };

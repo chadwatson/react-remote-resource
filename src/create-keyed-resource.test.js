@@ -1,5 +1,11 @@
 import React from "react";
-import { render, waitForElement, wait } from "react-testing-library";
+import {
+  act,
+  render,
+  waitForElement,
+  wait,
+  fireEvent
+} from "@testing-library/react";
 import hash from "object-hash";
 import RemoteResourceBoundary from "./RemoteResourceBoundary";
 import createKeyedResource from "./create-keyed-resource";
@@ -104,5 +110,61 @@ describe("createKeyedResource", () => {
     await waitForElement(() => getByText("other state"));
 
     stopObservation();
+  });
+
+  it("state correctly updates when a function is given to setState", async () => {
+    const resource = createKeyedResource(
+      index => Promise.resolve(index === 0 ? "A" : "B"),
+      index => index
+    );
+
+    const Example = ({ index }) => {
+      const [entry, setState] = resource.useState(index);
+      return (
+        <>
+          <span data-testid="value">{entry}</span>
+          <button
+            onClick={() => {
+              setState(currentState => `${currentState}${currentState}`);
+            }}
+            data-testid="button"
+          />
+        </>
+      );
+    };
+
+    const { getByTestId, getByText, rerender } = render(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example index={0} />
+      </RemoteResourceBoundary>
+    );
+
+    await waitForElement(() => getByTestId("value"));
+
+    expect(getByTestId("value")).toHaveTextContent("A");
+    fireEvent.click(getByTestId("button"));
+    expect(getByTestId("value")).toHaveTextContent("AA");
+
+    await rerender(
+      <RemoteResourceBoundary
+        fallback={<p>Loading...</p>}
+        renderError={() => <p>error</p>}
+      >
+        <Example index={1} />
+      </RemoteResourceBoundary>
+    );
+
+    await waitForElement(() => getByTestId("value"));
+
+    expect(getByTestId("value")).toHaveTextContent("B");
+
+    fireEvent.click(getByTestId("button"));
+
+    await wait(() => {
+      expect(getByTestId("value")).toHaveTextContent("BB");
+    });
   });
 });

@@ -1,5 +1,5 @@
 import React, { Suspense, useState } from "react";
-import { render, waitForElement, fireEvent } from "react-testing-library";
+import { render, waitForElement, fireEvent } from "@testing-library/react";
 import useSuspense from "./use-suspense";
 
 // ---------------------------

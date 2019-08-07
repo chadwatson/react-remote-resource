@@ -1,6 +1,6 @@
 import React, { useContext, useLayoutEffect } from "react";
 import Context from "./Context";
-import { render } from "react-testing-library";
+import { render } from "@testing-library/react";
 
 const Consumer = () => {
   const { registerError } = useContext(Context);
