@@ -157,14 +157,8 @@ describe("createKeyedResource", () => {
       </RemoteResourceBoundary>
     );
 
-    await waitForElement(() => getByTestId("value"));
-
-    expect(getByTestId("value")).toHaveTextContent("B");
-
+    await waitForElement(() => getByText("B"));
     fireEvent.click(getByTestId("button"));
-
-    await wait(() => {
-      expect(getByTestId("value")).toHaveTextContent("BB");
-    });
+    expect(getByTestId("value")).toHaveTextContent("BB");
   });
 });
