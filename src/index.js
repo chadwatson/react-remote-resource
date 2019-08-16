@@ -1,3 +1,4 @@
+export { default as batchSetState } from "./batch-set-state";
 export { default as createKeyedResource } from "./create-keyed-resource";
 export { default as createResource } from "./create-resource";
 export { default as createSimpleResource } from "./create-simple-resource";

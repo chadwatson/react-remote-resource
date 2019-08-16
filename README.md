@@ -201,6 +201,29 @@ const myResource = createKeyedResource(
 
 ## Resource Enhancers
 
+### `batchSetState`
+
+Provides the ability to set state on multiple resources at once, triggering only one state change to the underlying store. This means that React would only need to re-render once instead of once for each state change.
+
+It takes tuples where the first item is a resource and the second is either a value to set or a function to update the current value.
+
+```javascript
+const dissoc = key => obj => {
+  const copy = {...obj};
+  delete copy[key];
+  return copy;
+};
+
+const removeAccountState = dissoc(12345);
+
+batchSetState(
+  [messagesResource, removeAccountState],
+  [postsResource, removeAccountState],
+  [notificationsResource, removeAccountState],
+  [photosResource, removeAccountState]
+);
+```
+
 ### `persistResource`
 
 A higher order function that adds persistence to a specific resource.

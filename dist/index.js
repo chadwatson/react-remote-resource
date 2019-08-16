@@ -1,13 +1,14 @@
+import { createStore } from 'redux';
+import { Map as Map$1 } from 'immutable';
 import _extends from '@babel/runtime/helpers/esm/extends';
 import hash from 'object-hash';
 import React, { createContext, useRef, useState, useContext, useEffect, useCallback, useMemo, Suspense } from 'react';
 import uuid from 'uuid/v1';
-import { createStore } from 'redux';
-import { Map as Map$1 } from 'immutable';
 import { equals, curry } from 'ramda';
 import Maybe from 'data.maybe';
 
 const RECEIVE_STATE = "RECEIVE_STATE";
+const RECEIVE_BATCH_STATE = "RECEIVE_BATCH_STATE";
 const RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
 const RESET_RESOURCES = "RESET_RESOURCES";
 const initialRootState = Map$1({
@@ -19,12 +20,19 @@ const rootReducer = (state, action) => {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
 
+    case RECEIVE_BATCH_STATE:
+      return state.update("resourcesById", resourcesById => action.payload.reduce((acc, _ref) => {
+        let resource = _ref[0],
+            nextState = _ref[1];
+        return acc.update(resource.id, resourceState => typeof nextState === "function" ? nextState(resourceState) : nextState);
+      }, resourcesById));
+
     case RESET_ALL_RESOURCES:
       return state.update("resourcesById", resources => resources.clear());
 
     case RESET_RESOURCES:
-      return state.update("resourcesById", resources => resources.withMutations(mutableResources => action.resources.forEach((_ref) => {
-        let id = _ref.id;
+      return state.update("resourcesById", resources => resources.withMutations(mutableResources => action.resources.forEach((_ref2) => {
+        let id = _ref2.id;
         mutableResources.delete(id);
       })));
 
@@ -34,9 +42,20 @@ const rootReducer = (state, action) => {
 };
 
 const store = createStore(rootReducer, initialRootState);
-const selectResource = (state, _ref2) => {
-  let resourceId = _ref2.resourceId;
+const selectResource = (state, _ref3) => {
+  let resourceId = _ref3.resourceId;
   return state.getIn(["resourcesById", resourceId]);
+};
+
+const batchSetState = function batchSetState() {
+  for (var _len = arguments.length, items = new Array(_len), _key = 0; _key < _len; _key++) {
+    items[_key] = arguments[_key];
+  }
+
+  store.dispatch({
+    type: RECEIVE_BATCH_STATE,
+    payload: items
+  });
 };
 
 const Context = createContext({
@@ -307,4 +326,4 @@ const useSuspense = fn => {
   }));
 };
 
-export { RemoteResourceBoundary, createKeyedResource, createResource, createSimpleResource, persistResource, provideContext, resetAllResources, resetResources, useAutoSave, useSuspense };
+export { RemoteResourceBoundary, batchSetState, createKeyedResource, createResource, createSimpleResource, persistResource, provideContext, resetAllResources, resetResources, useAutoSave, useSuspense };

@@ -4,17 +4,18 @@ Object.defineProperty(exports, '__esModule', { value: true });
 
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
+var redux = require('redux');
+var immutable = require('immutable');
 var _extends = _interopDefault(require('@babel/runtime/helpers/extends'));
 var hash = _interopDefault(require('object-hash'));
 var React = require('react');
 var React__default = _interopDefault(React);
 var uuid = _interopDefault(require('uuid/v1'));
-var redux = require('redux');
-var immutable = require('immutable');
 var ramda = require('ramda');
 var Maybe = _interopDefault(require('data.maybe'));
 
 var RECEIVE_STATE = "RECEIVE_STATE";
+var RECEIVE_BATCH_STATE = "RECEIVE_BATCH_STATE";
 var RESET_ALL_RESOURCES = "RESET_ALL_RESOURCES";
 var RESET_RESOURCES = "RESET_RESOURCES";
 var initialRootState = immutable.Map({
@@ -26,6 +27,17 @@ var rootReducer = function rootReducer(state, action) {
     case RECEIVE_STATE:
       return state.setIn(["resourcesById", action.resourceId], action.state);
 
+    case RECEIVE_BATCH_STATE:
+      return state.update("resourcesById", function (resourcesById) {
+        return action.payload.reduce(function (acc, _ref) {
+          var resource = _ref[0],
+              nextState = _ref[1];
+          return acc.update(resource.id, function (resourceState) {
+            return typeof nextState === "function" ? nextState(resourceState) : nextState;
+          });
+        }, resourcesById);
+      });
+
     case RESET_ALL_RESOURCES:
       return state.update("resourcesById", function (resources) {
         return resources.clear();
@@ -34,8 +46,8 @@ var rootReducer = function rootReducer(state, action) {
     case RESET_RESOURCES:
       return state.update("resourcesById", function (resources) {
         return resources.withMutations(function (mutableResources) {
-          return action.resources.forEach(function (_ref) {
-            var id = _ref.id;
+          return action.resources.forEach(function (_ref2) {
+            var id = _ref2.id;
             mutableResources["delete"](id);
           });
         });
@@ -47,9 +59,20 @@ var rootReducer = function rootReducer(state, action) {
 };
 
 var store = redux.createStore(rootReducer, initialRootState);
-var selectResource = function selectResource(state, _ref2) {
-  var resourceId = _ref2.resourceId;
+var selectResource = function selectResource(state, _ref3) {
+  var resourceId = _ref3.resourceId;
   return state.getIn(["resourcesById", resourceId]);
+};
+
+var batchSetState = function batchSetState() {
+  for (var _len = arguments.length, items = new Array(_len), _key = 0; _key < _len; _key++) {
+    items[_key] = arguments[_key];
+  }
+
+  store.dispatch({
+    type: RECEIVE_BATCH_STATE,
+    payload: items
+  });
 };
 
 var Context = React.createContext({
@@ -354,6 +377,7 @@ var useSuspense = function useSuspense(fn) {
 };
 
 exports.RemoteResourceBoundary = RemoteResourceBoundary;
+exports.batchSetState = batchSetState;
 exports.createKeyedResource = createKeyedResource;
 exports.createResource = createResource;
 exports.createSimpleResource = createSimpleResource;
