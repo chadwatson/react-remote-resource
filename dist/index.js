@@ -125,15 +125,20 @@ const createResource = (_ref) => {
             registerError = _useContext.registerError;
 
       const entryId = args.length ? args.join("-") : "INDEX";
-      useEffect(() => // Important! The return value is used to unsubscribe from the store
-      subscribe(() => {
-        const nextEntryState = selectState(getResourceState(), args);
-        /* istanbul ignore else */
+      useEffect(() => {
+        let prevState = entryState; // Important! The return value is used to unsubscribe from the store
 
-        if (nextEntryState !== entryState) {
-          setState(nextEntryState);
-        }
-      }), args);
+        return subscribe(() => {
+          const nextEntryState = selectState(getResourceState(), args);
+          /* istanbul ignore else */
+
+          if (nextEntryState !== prevState) {
+            setState(nextEntryState);
+          }
+
+          prevState = nextEntryState;
+        });
+      }, args);
 
       if (pendingLoaders.get(entryId)) {
         throw pendingLoaders.get(entryId);

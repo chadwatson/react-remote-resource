@@ -151,16 +151,18 @@ var createResource = function createResource(_ref) {
 
       var entryId = args.length ? args.join("-") : "INDEX";
       React.useEffect(function () {
-        return (// Important! The return value is used to unsubscribe from the store
-          subscribe(function () {
-            var nextEntryState = selectState(getResourceState(), args);
-            /* istanbul ignore else */
+        var prevState = entryState; // Important! The return value is used to unsubscribe from the store
 
-            if (nextEntryState !== entryState) {
-              setState(nextEntryState);
-            }
-          })
-        );
+        return subscribe(function () {
+          var nextEntryState = selectState(getResourceState(), args);
+          /* istanbul ignore else */
+
+          if (nextEntryState !== prevState) {
+            setState(nextEntryState);
+          }
+
+          prevState = nextEntryState;
+        });
       }, args);
 
       if (pendingLoaders.get(entryId)) {

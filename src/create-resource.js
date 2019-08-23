@@ -56,18 +56,20 @@ const createResource = ({
       const { registerError } = useContext(Context);
       const entryId = args.length ? args.join("-") : "INDEX";
 
-      useEffect(
-        () =>
-          // Important! The return value is used to unsubscribe from the store
-          subscribe(() => {
-            const nextEntryState = selectState(getResourceState(), args);
-            /* istanbul ignore else */
-            if (nextEntryState !== entryState) {
-              setState(nextEntryState);
-            }
-          }),
-        args
-      );
+      useEffect(() => {
+        let prevState = entryState;
+
+        // Important! The return value is used to unsubscribe from the store
+        return subscribe(() => {
+          const nextEntryState = selectState(getResourceState(), args);
+          /* istanbul ignore else */
+          if (nextEntryState !== prevState) {
+            setState(nextEntryState);
+          }
+
+          prevState = nextEntryState;
+        });
+      }, args);
 
       if (pendingLoaders.get(entryId)) {
         throw pendingLoaders.get(entryId);
